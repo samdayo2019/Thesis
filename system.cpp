@@ -939,7 +939,7 @@ void calc_input(float time, float* u){
         u[1] = 0.1;
     }
     else{
-        u[0] = 0.3; 
+        u[0] = 0.5; 
         u[1] = 0.05;
     }
 }

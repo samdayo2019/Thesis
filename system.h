@@ -81,7 +81,7 @@ float dot_product(float (&row_vec)[2], float (&col_vec)[2]);
 float det(float (&matrix)[2][2]);
 void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], float (&Q_mat)[2][2], float (Hf)[2][2], float (&Hv)[2][3], float (&Sf)[2][2], float (&zp)[2]);
 
-bool cholesky_decomp(float** S, int n);
+// bool cholesky_decomp(float** S, int n);
 
 void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], float (&Q_mat)[2][2], float (&Hf)[2][2]);
 void matrix_vector(float (&matrix)[2][2], float (&vector)[2], float (&result)[2]);
