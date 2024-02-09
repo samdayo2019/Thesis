@@ -505,19 +505,19 @@ bool cholesky_decomp(float** S, float* vector_b, int n){
     }
 
     // forward substitution solving Ly = b 
-    for(int j = 0; j < n; j ++){
+    for(int j = 0; j < n; j ++){ // j = 0; j 1
         if(S[j][j] <= 0){
             cout << "Matrix is not positive definite" << endl; 
             return false;
         }
-        S[j][j] = (float)sqrt(S[j][j]);
-        vector_b[j] = vector_b[j] / S[j][j]; 
-        for(int i = j + 1; i < n; i++){
+        S[j][j] = (float)sqrt(S[j][j]); // S[0][0] = sqrt(S[0][0]); S[1][1] = sqrt(S[1][1])
+        vector_b[j] = vector_b[j] / S[j][j]; // b[0] = b[0] / S[0][0] -> data dependency on S[0][0] computation can be computed as soon as S[0][0] known
+        for(int i = j + 1; i < n; i++){ // i = 1 - (3-1); i = 2
             if(i < n){
-                S[i][j] = S[i][j] / S[j][j]; 
-                vector_b[i] = vector_b[i] - S[i][j]*vector_b[j];
-                for(int k = j + 1; k < i + 1; k++){
-                    S[i][k] = S[i][k] - (S[i][j] * S[k][j]);
+                S[i][j] = S[i][j] / S[j][j];  //S[1][0] = S[1][0] / S[0][0] -> data dependency on S[0][0]; S[2][0] = S[2][0] / S[0][0]
+                vector_b[i] = vector_b[i] - S[i][j]*vector_b[j]; // b[1] = b[1] - s[1][0]*b[0]; b[2] = b[2] - S[2][0]*b[0]
+                for(int k = j + 1; k < i + 1; k++){ // k = 1 , 2; k = 1, 3
+                    S[i][k] = S[i][k] - (S[i][j] * S[k][j]); // S[1][1] = S[1][1] - S[1][0]*S[1][0]; S[2][1] = S[2][1] - S[2][0]*S[1][0] and S[2][2] -= S[2][0]*S[2][0]
                 }
             }
             else break;
