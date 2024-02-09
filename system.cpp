@@ -1,5 +1,4 @@
 #include "system.h"
-// #include <systemc.h>
 #include <string>
 #include <fstream>
 #include <iomanip>
@@ -53,12 +52,6 @@ Particle::Particle(int num_landmarks)
     P[0][0] = 1; 
     P[1][1] = 1; 
     P[2][2] = 1; 
-    // for (i = 0; i < 3; i++){
-    //     P[i] = new float[3];
-    // }
-
-    //cout << "we here" << endl; 
-
 }
 
 Particle* fast_slam1(Particle* particles, float* control, float** z, int num_cols){
@@ -96,23 +89,8 @@ Particle* predict_particles(Particle* particles, float* control){
         px[1] = particles[i].y;
         px[2] = particles[i].yaw;
 
-        // generates noise value for the control value 
-        // for (k = 0; k < 2; k++){
-        //     noise[k] = distribution(gen); 
-        // }
-
         noise[0] = distribution1(gen); 
         noise[1] = distribution2(gen);
-
-        // noise[0] = distribution(gen); 
-        // noise[1] = distribution(gen);
-
-
-        // for (j = 0; j < 2; j ++){
-        //     for (k = 0; k < 2; k++){
-        //         r_mat[j][k] = (float)pow(R_matrix[j][k], 0.5);
-        //     }
-        // }
 
         for (j = 0; j < 2; j++){
             float sum = 0.0;
@@ -130,9 +108,6 @@ Particle* predict_particles(Particle* particles, float* control){
 
         //Returns the particle's estimated position using the noise motion command and it's initial known state vector
         px = motion_model(px, prod); // pxrod= u + noise*r matrix --> add gaussian noise to the command accounting for our coveriance
-        // cout << px[0] << endl;
-        // cout << px[1] << endl;
-        // cout << px[2] << endl;
         
         particles[i].x = px[0];
         particles[i].y = px[1];
@@ -182,11 +157,7 @@ Particle proposal_sampling(Particle particle, float*z, float (&Q_mat)[2][2]){
     float mult[2][3] = {{0, 0, 0}, {0, 0, 0}};
     float mult_3[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
-    // float HVT_copy[3][2] = {{0, 0}, {0, 0}, {0, 0}};
     float Sf[2][2] =  {{0,0}, {0,0}};
-    // float Sinv[2][2] =  {{0,0}, {0,0}};
-    // float P[3][3] =  {{0,0,0}, {0,0,0}, {0,0,0}};
-    // float Pinv[3][3] =  {{0,0,0}, {0,0,0}, {0,0,0}};
     float** sInv = new float*[2];
     float** P = new float*[3]; 
     for (int i = 0; i < 3; i++){
@@ -225,7 +196,6 @@ Particle proposal_sampling(Particle particle, float*z, float (&Q_mat)[2][2]){
         }
     }
 
-    // invert_mat(Sinv);
     inverse(sInv, 2);
 
 
@@ -238,7 +208,6 @@ Particle proposal_sampling(Particle particle, float*z, float (&Q_mat)[2][2]){
         }
     }
 
-    // invert_3x3(P, Pinv, 3);
     inverse(P, 3);
 
     HvT[0][0] = Hv[0][0]; 
@@ -275,7 +244,6 @@ Particle proposal_sampling(Particle particle, float*z, float (&Q_mat)[2][2]){
         }
     }
 
-    // invert_3x3(Pinv, P, 3);
     inverse(P, 3);
 
     for (uint8_t i = 0; i < 3; i++){
@@ -329,22 +297,10 @@ void matrix_vector(float** matrix, float (&vector)[2], float (&result)[2]){
 
 void inverse(float** matrix, int n){
     float temp_val; 
-    // float* temp;
-
-    // for (int i = 0; i < n; i++){
-    //     for (int j = 0; j < n; j++){
-    //         if(matrix[i][j] < -max_range) matrix[i][j] = -(int)floor(max_range*scale_factor); 
-    //         else if(matrix[i][j] > max_range) matrix[i][j] = (int)floor(max_range*scale_factor);
-    //         else matrix[i][j] = (int)floor(matrix[i][j]*scale_factor);
-    //         // min_value = (matrix[i][j] < min_value) ? matrix[i][j] : min_value;
-    //         // max_value = (matrix[i][j] > max_value) ? matrix[i][j] : max_value;
-    //     }
-    // }    
 
     for (int i = 0; i < n; i++){
         for (int j = 0; j <2 * n; j++){
             if(j == (i + n))
-                // matrix[i][j] = (int)floor(1*scale_factor);
                 matrix[i][j] = 1; 
         }
     }
@@ -362,14 +318,9 @@ void inverse(float** matrix, int n){
     for (int i = 0; i < n; i++){
         for (int j = 0; j < n; j++){
             if(j != i){
-                // temp_val = (int)scale_factor*floor(matrix[j][i] / matrix[i][i]);
                 temp_val = matrix[j][i] / matrix[i][i];
-                // min_value = (temp_val < min_value) ? temp_val : min_value;
-                // max_value = (temp_val > max_value) ? temp_val : max_value;
                 for (int k = 0; k < 2 * n; k++){
-                    // matrix[j][k] = (int)floor(matrix[j][k] - matrix[i][k] * temp_val);
                     matrix[j][k] = matrix[j][k] - matrix[i][k] * temp_val;
-
                 }
             }
         }
@@ -378,319 +329,12 @@ void inverse(float** matrix, int n){
     for (int i = 0; i < n; i++){
         temp_val = matrix[i][i]; 
         for (int j = 0; j < 2 * n; j++){
-            // matrix[i][j] = (int)scale_factor*floor(matrix[i][j] / temp_val);
             matrix[i][j] = matrix[i][j] / temp_val;
         }
     }
 
-    // for (int i = 0; i < n; i++){
-    //     for (int j = 0; j < n; j++){
-    //         // min_value = (matrix[i][j + n] < min_value) ? matrix[i][j + n] : min_value;
-    //         // max_value = (matrix[i][j + n] > max_value) ? matrix[i][j + n] : max_value;
-    //         matrix[i][j] = floor(matrix[i][j]/scale_factor);
-    //     }
-    // } 
-
-    // float** lower = new float*[n]; 
-    // float** upper = new float*[n];
-    // float** trans = new float*[n]; 
-
-    // for(int i = 0; i < n; i++){
-    //     lower[i] = new float[n];
-    //     upper[i] = new float[n];
-    //     trans[i] = new float[n];
-
-    //     for(int j = 0; j < n; j++){
-    //         lower[i][j] = 0; 
-    //         upper[i][j] = 0;
-    //         trans[i][j] = 0;
-    //         min_value = ((matrix[i][j]) < min_value) ? (matrix[i][j]) : min_value;
-    //         max_value = ((matrix[i][j]) > max_value) ? (matrix[i][j]) : max_value;
-        
-    //     }
-    // }
-
-    // for(int i = 0; i < n; i++){
-    //     for(int k = i; k < n; k++){
-    //         float sum = 0; 
-    //         for(int j = 0; j < i; j++){
-    //             sum+= (lower[i][j]*upper[k][j]); //sum_f = l_f*u_f = l_q/sf * u_f/sf--> sum_f= 1/sf^2 * l_f*u_f --> sum_q = (l_q*u_q)/sf
-    //             // min_value = (abs(sum) < min_value) ? abs(sum) : min_value;
-    //             // max_value = (abs(sum) > max_value) ? abs(sum) : max_value;
-    //         }
-    //         upper[k][i] = matrix[i][k] - sum; // upper_f = mat_f - sum_f = mat_q/sf - 1/sf^3(l_q*u_q) --> 1/sf(mat_q - 1/sf)
-    //         // min_value = (abs(upper[k][i]) < min_value) ? abs(upper[k][i]) : min_value;
-    //         // max_value = (abs(upper[k][i]) > max_value) ? abs(upper[k][i]) : max_value;
-    //     }
-
-    //     for(int k = i; k < n; k++){
-    //         if(i == k)lower[i][i] = 1;
-    //         else{
-    //             int sum = 0;
-    //             for(int j = 0; j < i; j++){
-    //                 sum+= lower[k][j] * upper[i][j]; //sum_q = 1/sf*(l_q*u_q)
-    //                 // min_value = (sum < min_value) ? sum : min_value;
-    //                 // max_value = (sum > max_value) ? sum : max_value;
-    //             }
-    //             lower[k][i] = (matrix[k][i] - sum) / upper[i][i]; // float_f = (mat/sf - 1/sf * prod)/(1/sf)
-    //             // min_value = (abs(lower[k][i]) < min_value) ? abs(lower[k][i]) : min_value;
-    //             // max_value = (abs(lower[k][i]) > max_value) ? abs(lower[k][i]) : max_value;
-
-    //         }
-    //     }
-    // }
-
-    // for(int i = 0; i < n; i++){
-    //     for(int k = i + n - 1; k > i; k--){
-    //         if(k < n) lower[k][i] = (k - i == 2) ? (lower[k - 1][i]*lower[k][i + 1] - lower[k][i]) : -lower[k][i];
-    //     }
-    // }
-
-    // transform_lower(upper, trans, n); 
-
-    // mult_mat(trans, lower, n);
-
-    // for (int i = 0; i< n; i++){
-    //     for (int j = 0; j < n; j++){
-    //         matrix[i][j] = lower[i][j];
-    //         min_value = ((matrix[i][j]) < min_value) ? (matrix[i][j]): min_value;
-    //         max_value = ((matrix[i][j]) > max_value) ? (matrix[i][j]): max_value;
-    //     }
-    // }
-
     return;
 }
-
-// void transform_lower(float** lower, float**trans, int n){
-//     // float inter[n][n]; 
-
-
-//     for(int i = 0; i < n; i++){
-//         trans[i][i] = 1/lower[i][i];
-//         for (int j = i + 1; j < n; j++){
-//             trans[i][j] = (j - i == 1) ? -(lower[j][i]/(lower[j - 1][i]*lower[j][i+1])) : (lower[j - 1][i]*lower[j][i + 1] - lower[j - 1][i + 1]*lower[j][i])/diag(lower, n); 
-//         }
-//     }
-
-//     // for (int i = 0; i< n; i++){
-//     //     for (int j = 0; j < n; j++){
-//     //         lower[j][i] = trans[i][j];
-//     //     }
-//     // }
-
-//     return; 
-// }
-
-// float diag(float** lower, int n){
-//     float prod  = 1; 
-//     for (int i = 0; i < n; i++){
-//         prod*=lower[i][i];
-//     }
-//     return prod; 
-// }
-
-// void forward_elim(float** lower, int n){
-    // float I[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-
-    // for (int k = 0; k < n; k++){
-    //     for (int j = 0; j < n; j++){
-    //         I[j][k] = I[j][k] / lower[j][j];
-    //         for (int i = j + 1; i < n; i++){
-    //             I[i][k] = I[i][k] - lower[i][j]*I[j][k];
-    //         }
-    //     }
-    // }
-
-    // for (int i = 0; i < n; i++){
-    //     for(int j = 0; j < n; j++){
-    //         lower[i][j] = I[i][j];
-    //     }
-    // }
-    
-    // return; 
-//}
-
-
-// float invert_3x3(float(&matrix)[3][3], float (&inverse)[3][3], int n){
-//      // Find determinant of A[][]
-//     // int64_t quant_matrix[3][3] = {{0,0,0}, {0,0,0}, {0,0,0}};
-//     // quantize_matrix(matrix, quant_matrix);
-//     // int64_t det = determinant(quant_matrix, 3);
-//     float det = determinant(matrix, n);
-//     min_det = (det < min_det) ? det : min_det;
-//     max_det = (det > max_det) ? det : max_det;
-//     if (det == 0) {
-//         std::cout << "Singular matrix, can't find its inverse";
-//         return false;
-//     }
- 
-//     // Find adjoint
-//     float adj[3][3];
-//     // int64_t adj[3][3];
-//     // adjoint(quant_matrix, adj);
-//     adjoint(matrix, adj);
-//     // Find Inverse using formula "inverse(A) =
-//     // adj(A)/det(A)"
-
-//     // dequant_matrix(adj, inverse);
-//     for (int i = 0; i < 3; i++)
-//         for (int j = 0; j < 3; j++)
-//             // inverse[i][j] = adj[i][j] / float(det * scale_factor);
-//             inverse[i][j] = adj[i][j] / det;
-// }
-
-// void quantize_matrix(float(&matrix)[3][3], int64_t(&quantized)[3][3]){
-//     for (int i = 0; i < 3; i++){
-//         for (int j = 0; j < 3; j++){
-//             quantized[i][j] = (int64_t) (matrix[i][j] / scale_factor);
-//         }
-//     }
-// }
-
-// void dequant_matrix(int64_t(&quant)[3][3], float(&matrix)[3][3]){
-//     for (int i = 0; i < 3; i++){
-//         for (int j = 0; j < 3; j++){
-//             matrix[i][j] = (float)quant[i][j]*scale_factor*scale_factor;
-//         }
-//     }
-// }
-
-// float determinant(float A[3][3], int n){
-//     float D = 0; // Initialize result
- 
-//     //  Base case : if matrix contains single element
-//     if (n == 1)
-//         return A[0][0];
- 
-//     float temp[3][3]; // To store cofactors
- 
-//     int sign = 1; // To store sign multiplier
- 
-//     // Iterate for each element of first row
-//     for (int f = 0; f < n; f++) {
-//         // Getting Cofactor of A[0][f]
-//         getCofactor(A, temp, 0, f, n);
-//         D += sign * A[0][f] * determinant(temp, n - 1);
- 
-//         // terms are to be added with alternate sign
-//         sign = -sign;
-//     }
- 
-//     return D;
-// }
-
-// int64_t determinant(int64_t A[3][3], int n){
-//     int64_t D = 0; // Initialize result
- 
-//     //  Base case : if matrix contains single element
-//     if (n == 1)
-//         return A[0][0];
- 
-//     int64_t temp[3][3]; // To store cofactors
- 
-//     int sign = 1; // To store sign multiplier
- 
-//     // Iterate for each element of first row
-//     for (int f = 0; f < n; f++) {
-//         // Getting Cofactor of A[0][f]
-//         getCofactor(A, temp, 0, f, n);
-//         D += sign * A[0][f] * determinant(temp, n - 1);
- 
-//         // terms are to be added with alternate sign
-//         sign = -sign;
-//     }
- 
-//     return D;
-// }
-
-// void getCofactor(float A[3][3], float temp[3][3], int p, int q, int n){
-//     int i = 0, j = 0;
- 
-//     // Looping for each element of the matrix
-//     for (int row = 0; row < n; row++) {
-//         for (int col = 0; col < n; col++) {
-//             //  Copying into temporary matrix only those
-//             //  element which are not in given row and
-//             //  column
-//             if (row != p && col != q) {
-//                 temp[i][j++] = A[row][col];
- 
-//                 // Row is filled, so increase row index and
-//                 // reset col index
-//                 if (j == n - 1) {
-//                     j = 0;
-//                     i++;
-//                 }
-//             }
-//         }
-//     }
-// }
-
-// void getCofactor(int64_t A[3][3], int64_t temp[3][3], int p, int q, int n){
-//     int i = 0, j = 0;
- 
-//     // Looping for each element of the matrix
-//     for (int row = 0; row < n; row++) {
-//         for (int col = 0; col < n; col++) {
-//             //  Copying into temporary matrix only those
-//             //  element which are not in given row and
-//             //  column
-//             if (row != p && col != q) {
-//                 temp[i][j++] = A[row][col];
- 
-//                 // Row is filled, so increase row index and
-//                 // reset col index
-//                 if (j == n - 1) {
-//                     j = 0;
-//                     i++;
-//                 }
-//             }
-//         }
-//     }
-// }
-
-// void adjoint(float A[3][3], float Adj[3][3]){
-//     // temp is used to store cofactors of A[][]
-//     int sign = 1; 
-//     float temp[3][3];
- 
-//     for (int i = 0; i < 3; i++) {
-//         for (int j = 0; j < 3; j++) {
-//             // Get cofactor of A[i][j]
-//             getCofactor(A, temp, i, j, 3);
- 
-//             // sign of adj[j][i] positive if sum of row
-//             // and column indexes is even.
-//             sign = ((i + j) % 2 == 0) ? 1 : -1;
- 
-//             // Interchanging rows and columns to get the
-//             // transpose of the cofactor matrix
-//             Adj[j][i] = (sign) * (determinant(temp, 3 - 1));
-//         }
-//     }
-// }
-
-
-// void adjoint(int64_t A[3][3], int64_t Adj[3][3]){
-//     // temp is used to store cofactors of A[][]
-//     int sign = 1; 
-//     int64_t temp[3][3];
- 
-//     for (int i = 0; i < 3; i++) {
-//         for (int j = 0; j < 3; j++) {
-//             // Get cofactor of A[i][j]
-//             getCofactor(A, temp, i, j, 3);
- 
-//             // sign of adj[j][i] positive if sum of row
-//             // and column indexes is even.
-//             sign = ((i + j) % 2 == 0) ? 1 : -1;
- 
-//             // Interchanging rows and columns to get the
-//             // transpose of the cofactor matrix
-//             Adj[j][i] =(int32_t) (sign) * (determinant(temp, 3 - 1));
-//         }
-//     }
-// }
 
 Particle update_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
     uint8_t lm_id = (uint8_t)z[2];
@@ -746,12 +390,6 @@ q_mat is the user defined Q matrix (measure of how much we believe the measureme
 Hf is the jacobian 
 */
 void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], float (&Q_mat)[2][2], float (&Hf)[2][2]){
-    // float HfT[2][2]; 
-    // float PHt[2][2]; 
-    // float S[2][2]; 
-    // float ST[2][2];
-    // float L_matrix[2][2];
-
     float** HfT = new float*[2];
     float** H = new float*[2];  
     float** PHt = new float*[2]; 
@@ -769,7 +407,7 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
         ST[i] = new float[2];
         H[i] = new float[2]; 
     }
-    // float L_mattrans[2][2];
+
     float x[2] = {0,0};
     float vect[2] = {0,0};
 
@@ -814,27 +452,22 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
 
     cholesky_decomp(S, vect, 2);
 
-    // transpose_mat(L_matrix);
     transpose_mat(S);
 
 
-    // invert_mat(L_matrix);
     inverse(S, 2);
 
     for (uint8_t i = 0; i < 2; i++){
         for (uint8_t j = 0; j < 2; j++){
-            // L_mattrans[i][j] = L_matrix[i][j];
             L_trans[i][j] = S[i][j + 2];
 
         }
     }
 
-    // transpose_mat(L_mattrans);
     transpose_mat(L_trans);
 
 
     mult_mat(PHt, L_matrix,2); //W1
-    // mult_mat(L_matrix, L_mattrans); //W
     mult_mat(L_matrix, L_trans,2); //W
 
 
@@ -864,17 +497,6 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
     }
 }
 
-// bool cholesky_decomp(float (&matrix)[2][2], float (&L_matrix)[2][2]){
-//     L_matrix[0][0] = (float)sqrt(matrix[0][0]); 
-//     L_matrix[0][1] = 0.0; 
-//     L_matrix[1][0] = matrix[1][0]/L_matrix[0][0];
-//     L_matrix[1][1] = (float)sqrt(matrix[1][1] - pow(L_matrix[1][0], 2));
-
-//     return true; 
-
-
-// }
-
 bool cholesky_decomp(float** S, float* vector_b, int n){
     for(int i = 0; i < n; i++){
         for(int j = i + 1; j < n; j++){
@@ -902,58 +524,8 @@ bool cholesky_decomp(float** S, float* vector_b, int n){
         }
     }
     
-
-    // for(int i = n-1; i >= 0; i--){
-    //     float partial_sum = 0; 
-    //     for(int j = i + 1; j <n; j++){
-    //         partial_sum+= S[j][i] * vector_b[j];
-    //     }
-    //     vector_b[i] = (vector_b[i] - partial_sum)/S[i][i];
-    // }
-
     return true;
 }
-
-
-
-
-// bool cholesky_decomp(float** S, int n){
-//     float L[n][n] = {0};
-//     for (int i = 0; i < n; i++){
-//         for (int j = 0; j < n; j++){
-//             float sum = 0.0;    
-//             if (j == i){
-//                 for (int k = 0; k < j; k++){
-//                     sum+=pow(L[j][k], 2); 
-//                 }
-//                  L[j][j] = sqrt(S[j][j] - sum);
-//             }
-//             else{
-//                 for (int k = 0; k < j; k++){
-//                     sum+= (L[i][k] * L[j][k]);
-//                 }
-//                 L[i][j] = (S[i][j] - sum)/L[j][j];
-//             }
-//         }
-//     }
-
-//     for (int i = 0; i < n; i++){
-//         for (int j = 0; j < n; j++){
-//             if(j > i) S[i][j] = 0;
-//             else S[i][j] = L[i][j]; 
-//         }
-//     }
-    
-
-//     // L_matrix[0][0] = (float)sqrt(matrix[0][0]); 
-//     // L_matrix[0][1] = 0.0; 
-//     // L_matrix[1][0] = matrix[1][0]/L_matrix[0][0];
-//     // L_matrix[1][1] = (float)sqrt(matrix[1][1] - pow(L_matrix[1][0], 2));
-
-//     return true; 
-
-
-// }
 
 Particle add_new_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
     float r = z[0]; 
@@ -963,7 +535,6 @@ Particle add_new_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
     float** sChol; 
     float** sChol_trans;
     float ** Q; 
-    //cout << "Landmark: " << (int) lm_id << endl; 
     float s = sin(pi_2_pi(particle.yaw + b));
     float c = cos(pi_2_pi(particle.yaw + b));
     float* vect_b = new float[2]; 
@@ -978,9 +549,7 @@ Particle add_new_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
     float dy = r * s; 
     float d2 = (float)(pow(dx, 2) + pow(dy, 2));
     float d = (float)(sqrt(d2));
-    // float gz[2][2] = {{dx / d, dy / d}, {-dy / d2, dx / d2}};
-    // float gv_inv[2][2];  
-    // float gv_trans[2][2];
+
 
     Q = new float*[2];
     gz = new float*[2]; 
@@ -999,14 +568,6 @@ Particle add_new_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
     gz[0][1] = dy/d; 
     gz[1][0] = -dy/d2; 
     gz[1][1] = dx/d2; 
-
-    // for (uint8_t i = 0; i < 2; i++){
-    //     for (uint8_t j = 0; j < 2; j++){
-    //         // gv_inv[i][j] = gz[i][j]; 
-    //         // gv_trans[i][j] = gz[i][j];
-    //         Q[i][j] = Q_mat[i][j];
-    //     }
-    // }
     
     //calculate for Z in G = LZ so that we can invert it
     for(int j = 0; j < 2; j++){
@@ -1043,16 +604,6 @@ Particle add_new_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
         }     
     }
 
-
-
-    // invert_mat(gv_inv);
-    // inverse(gv_inv, 2); //g^-1
-    // transpose_mat(gv_trans); //g^T
-    // invert_mat(gv_trans);
-    // inverse(gv_trans, 2); //(g^T)^-1
-    // mult_mat(Q, gv_trans,2); // Q*(G^T)^-1
-    // mult_mat(gv_inv, gv_trans,2); //G^-1*Q*(G^T)^-1
-    // add the new coveriance matrix to the appropriate landmark position
     for (uint8_t i = 0; i < 2; i++){
         for (uint8_t j = 0; j < 2; j++){
             // float val = gv_trans[i][j];
@@ -1080,12 +631,8 @@ Particle* resampling(Particle* particles){
     uint16_t i = 0;
     for (i = 0; i < NUM_PARTICLES; i++){
         pw[i] = particles[i].w;
-        // weights[i] = particles[i].w;
     }
 
-    // for (i = 0; i < NUM_PARTICLES; i++){
-    //     n_eff += pow(pw[i], 2);
-    // }
     float dp = vector_vector(pw, pw, NUM_PARTICLES);
     n_eff = 1.0/dp;
 
@@ -1185,8 +732,7 @@ float compute_weight(Particle particle, float* z, float (&Q_mat)[2][2]){
     float Sf[2][2] =  {{0,0}, {0,0}};
     float zp[2]; //treat zp as a column vector
     float dx[2]; //treat dx as a column vector
-    // float dx_chol[2];
-    // float sInv[2][2] = {{0,0}, {0,0}};   
+
     float** sChol = new float*[2];  
     float result[2] = {0.0 ,0.0};
     float dotproduct = 0.0; 
@@ -1218,13 +764,6 @@ float compute_weight(Particle particle, float* z, float (&Q_mat)[2][2]){
         }
         result[i] = dx[i];
     }   
-
-    // compute Q^-1
-    // if(!invert_mat(sInv)){
-    //     cout << "Singular" << endl; 
-    //     return 1.0; 
-    // }
-    // inverse(sChol, 2);
     
     // solve Ly = b where y = z 
     cholesky_decomp(sChol, result, 2);
@@ -1260,9 +799,6 @@ float det(float (&matrix)[2][2]){
 }
 
 void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], float (&Q_mat)[2][2], float (Hf)[2][2], float (&Hv)[2][3], float (&Sf)[2][2], float (&zp)[2]){
-    // float mult_vals[2][2] = {{0, 0}, {0, 0}};
-    // float vals[2][2] = {{0, 0}, {0, 0}};
-    //float pf_mat[2][2] = {{0, 0}, {0, 0}};
     float** mult_vals = new float*[2]; 
     float** vals = new float*[2];
     float** pf_mat = new float*[2];
@@ -1319,28 +855,6 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
     }
 }
 
-// void mult_mat(float (&matrix1)[2][2], float (&matrix2)[2][2]){
-//     float inter[2][2]; 
-//     uint8_t i = 0;
-//     uint8_t j = 0;
-//     uint8_t k = 0;
-//     for (i = 0; i < 2; i++){
-//         for (j = 0; j < 2; j++){
-//             inter[i][j] = matrix2[i][j];
-//         }
-//     }
-
-//     for (i = 0; i < 2; i++){
-//         for (j = 0; j < 2; j++){
-//             matrix2[i][j] = 0;
-//             for (k = 0; k < 2; k++){
-//                 matrix2[i][j] += matrix1[i][k]*inter[k][j];
-//             }
-//         }
-//     }
-// }
-
-
 void mult_mat(float** matrix1, float** matrix2, int n){
     float inter[n][n]; 
     uint8_t i = 0;
@@ -1362,36 +876,12 @@ void mult_mat(float** matrix1, float** matrix2, int n){
     }
 }
 
-
-// bool invert_mat(float (&matrix)[2][2]){
-//     //cout << "We inside the invert" << endl;
-//     float a = matrix[0][0]; 
-//     float d = matrix[1][1];
-//     float b = matrix[0][1];
-//     float c = matrix[1][0];
-//     float det = a*d - b*c; 
-//     if (det == 0.0) return false; 
-//     matrix[0][0] = d / det; 
-//     matrix[0][1] = -b / det; 
-//     matrix[1][0] = -c / det; 
-//     matrix[1][1] = a / det; 
-//     return true;
-//     //cout << "We bout to return from invert" << endl;
-// }
-
 void transpose_mat(float** matrix){
     float b = matrix[0][1];
     float c = matrix[1][0];
     matrix[0][1] = c; 
     matrix[1][0] = b;  
 }
-
-// void transpose_mat(float (&matrix)[2][2]){
-//     float b = matrix[0][1];
-//     float c = matrix[1][0];
-//     matrix[0][1] = c; 
-//     matrix[1][0] = b;  
-// }
 
 float* motion_model(float* states, float* control){
     float f[3][3] = {{1.0, 0, 0}, {0, 1.0, 0}, {0, 0, 1.0}}; // --> identity matrix to simply extract each part of the state vector
@@ -1518,7 +1008,7 @@ float** observation(float* xTrue, float* xd, float* u, float** rfid, uint8_t num
         }
     }
     num_cols = z_new[0].size();
-    // cout << num_cols << endl; 
+
     for (i = 0; i < 3; i++){
         z[i] = new float[num_cols];
     }
@@ -1532,36 +1022,14 @@ float** observation(float* xTrue, float* xd, float* u, float** rfid, uint8_t num
     // Add noise to the control input to advance the simulation 
     normal_distribution<float> distribution_cntr(0, 0.25);
     ud[0] = u[0] + distribution_cntr(gen)*pow(R_sim[0][0], 0.5);
-    // ud[0] = u[0] + distribution(gen)*pow(R_sim[0][0], 0.5);
     normal_distribution<float> distribution_cntr2(0, 0.25);
     ud[1] = u[1] + distribution_cntr2(gen)*pow(R_sim[1][1], 0.5) + OFFSET_YAW_RATE_NOISE; 
-    // ud[1] = u[1] + distribution(gen)*pow(R_sim[1][1], 0.5) + OFFSET_YAW_RATE_NOISE; 
 
 
     xd = motion_model(xd, ud);
 
     return z; 
 }
-
-// class particleProcessor : public sc_module{
-//     public:
-//         Particle* processing_particles = new Particle[NUM_PARTICLES]; 
-//         float* command = new float[2]; 
-//         float* estimate = new float[3]; 
-
-
-//         SC_HAS_PROCESS(particleProcessor);
-
-//         particleProcessor(sc_module_name, Particle* particles){
-//             processing_particles = particles; 
-//         }
-
-//         void advance(float* control, float** landmark_obs, int num_observations){   
-//             processing_particles = fast_slam1(processing_particles, control, landmark_obs, num_observations);
-//             calc_final_state(processing_particles, estimate);
-//         }
-// };
-
 
 int main(){
     float ave_min = 0; 
@@ -1650,9 +1118,6 @@ int main(){
             particles = fast_slam1(particles, ud, z, num_columns); 
 
             calc_final_state(particles, xEst);  
-            // for(int i = 0; i < STATE_SIZE; i++){
-            //     x_state[i] = xEst[i];
-            // }
             
             calc_final_state(particles, xEst);
 
