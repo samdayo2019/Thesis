@@ -523,7 +523,7 @@ bool cholesky_decomp(float** S, float* vector_b, int n){
     }
 
     // forward substitution solving Ly = b 
-    for(int j = 0; j < n; j ++){
+    for(int j = 0; j < n; j ++){ // j = 0; j 1
         if(S[j][j] <= 0){
             cout << "Matrix is not positive definite" << endl; 
             return false;
