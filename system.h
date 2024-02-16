@@ -108,6 +108,7 @@ void inverse(float** matrix, int n);
 void matrix_vector(float** matrix, float (&vector)[2], float (&result)[2]);
 
 bool cholesky_decomp(float** S, float* vector_b, int n);
+float clamp(float val, float low, float high);
 
 
 

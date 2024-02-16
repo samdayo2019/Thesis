@@ -6,3 +6,8 @@ system.o
 Simulation Plot Big Circular.png
 Simulation Plot Big Circular - cholesky for inverse.png
 Simulation Plot Big Circular - OG.png
+Simulation 512 complex.png
+Simulation 512 simple.png
+Simulation 8192 complex.png
+perf.data
+output-final.png

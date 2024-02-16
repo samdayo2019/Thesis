@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <random>
 #include <iostream>
+#include <bits/stdc++.h>
 
 //stuff 
 using namespace std;
@@ -300,6 +301,9 @@ void inverse(float** matrix, int n){
 
     for (int i = 0; i < n; i++){
         for (int j = 0; j <2 * n; j++){
+            // if(j < n){
+            //     matrix[i][j] = clamp(matrix[i][j], -512, 511.984375);
+            // }
             if(j == (i + n))
                 matrix[i][j] = 1; 
         }
@@ -318,9 +322,16 @@ void inverse(float** matrix, int n){
     for (int i = 0; i < n; i++){
         for (int j = 0; j < n; j++){
             if(j != i){
+                // temp_val = clamp(matrix[j][i] / matrix[i][i], -2097152, 2097151.9990234375);
                 temp_val = matrix[j][i] / matrix[i][i];
+                // min_value = (temp_val < min_value) ? temp_val : min_value;
+                // max_value = (temp_val > max_value) ? temp_val : max_value;
                 for (int k = 0; k < 2 * n; k++){
+                    // min_value = (matrix[j][k] < min_value) ? matrix[j][k] : min_value;
+                    // max_value = (matrix[j][k] > max_value) ? matrix[j][k] : max_value;
+                    // matrix[j][k] = clamp(matrix[j][k] - matrix[i][k] * temp_val, -2097152, 2097151.9990234375);
                     matrix[j][k] = matrix[j][k] - matrix[i][k] * temp_val;
+
                 }
             }
         }
@@ -329,11 +340,18 @@ void inverse(float** matrix, int n){
     for (int i = 0; i < n; i++){
         temp_val = matrix[i][i]; 
         for (int j = 0; j < 2 * n; j++){
+            // matrix[i][j] = clamp(matrix[i][j] / temp_val, -2097152, 2097151.9990234375);
             matrix[i][j] = matrix[i][j] / temp_val;
         }
     }
 
     return;
+}
+
+float clamp(float val, float low, float high){
+    if(val < low) return low; 
+    else if(val > high) return high; 
+    else return val; 
 }
 
 Particle update_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
@@ -510,21 +528,26 @@ bool cholesky_decomp(float** S, float* vector_b, int n){
             cout << "Matrix is not positive definite" << endl; 
             return false;
         }
-        S[j][j] = (float)sqrt(S[j][j]);
+        S[j][j] = (float)sqrt(S[j][j]); // costly sqrt operation 
+        // S[j][j] = clamp((float)sqrt(S[j][j]), -512, 511.984375); // costly sqrt operation 
         vector_b[j] = vector_b[j] / S[j][j]; 
+        // vector_b[j] = clamp(vector_b[j] / S[j][j], -512, 511.984375); 
         for(int i = j + 1; i < n; i++){
             if(i < n){
                 S[i][j] = S[i][j] / S[j][j]; 
+                // S[i][j] = clamp(S[i][j] / S[j][j], -512, 511.984375); 
                 vector_b[i] = vector_b[i] - S[i][j]*vector_b[j];
+                // vector_b[i] = clamp(vector_b[i] - S[i][j]*vector_b[j], -512, 511.984375);
                 for(int k = j + 1; k < i + 1; k++){
                     S[i][k] = S[i][k] - (S[i][j] * S[k][j]);
+                    // S[i][k] = clamp(S[i][k] - (S[i][j] * S[k][j]), -512, 511.984375);
                 }
             }
             else break;
         }
     }
     
-    return true;
+    return true;    
 }
 
 Particle add_new_landmark(Particle particle, float *z, float (&Q_mat)[2][2]){
