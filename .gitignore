@@ -11,3 +11,4 @@ Simulation 512 simple.png
 Simulation 8192 complex.png
 perf.data
 output-final.png
+.vscode/c_cpp_properties.json

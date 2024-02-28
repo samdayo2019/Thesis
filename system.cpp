@@ -2,13 +2,19 @@
 #include <string>
 #include <fstream>
 #include <iomanip>
-#include <sys/time.h>
+// #include <sys/time.h>
 #include <queue>
 #include <vector>
 #include <cstdlib>
 #include <random>
 #include <iostream>
-#include <bits/stdc++.h>
+#include <math.h>
+// #include <bits/stdc++.h>
+
+//Includes for HLS
+#include "HLS\math.h"
+#include "HLS\extendedmath.h"
+#include "HLS\hls.h"
 
 //stuff 
 using namespace std;
@@ -515,6 +521,11 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
     }
 }
 
+component bool cholesky_decomp(ihc::stream_in<float> &sMatrix, ihc::stream_in<float> &b_vector,
+    hls_stable_argument int n){
+
+    }
+
 bool cholesky_decomp(float** S, float* vector_b, int n){
     for(int i = 0; i < n; i++){
         for(int j = i + 1; j < n; j++){
@@ -529,15 +540,16 @@ bool cholesky_decomp(float** S, float* vector_b, int n){
             return false;
         }
         S[j][j] = (float)sqrt(S[j][j]); // costly sqrt operation 
-        // S[j][j] = clamp((float)sqrt(S[j][j]), -512, 511.984375); // costly sqrt operation 
+        
         vector_b[j] = vector_b[j] / S[j][j]; 
-        // vector_b[j] = clamp(vector_b[j] / S[j][j], -512, 511.984375); 
-        for(int i = j + 1; i < n; i++){
+        
+        for(int i = j + 1; i < n; i++){ // variable loop trip count --> means this can't be pipelined --> need to fix
             if(i < n){
                 S[i][j] = S[i][j] / S[j][j]; 
-                // S[i][j] = clamp(S[i][j] / S[j][j], -512, 511.984375); 
+                
                 vector_b[i] = vector_b[i] - S[i][j]*vector_b[j];
-                // vector_b[i] = clamp(vector_b[i] - S[i][j]*vector_b[j], -512, 511.984375);
+                
+                // this loop can be unrolled. S[i][j] can be read before the loop begins
                 for(int k = j + 1; k < i + 1; k++){
                     S[i][k] = S[i][k] - (S[i][j] * S[k][j]);
                     // S[i][k] = clamp(S[i][k] - (S[i][j] * S[k][j]), -512, 511.984375);
@@ -796,7 +808,7 @@ float compute_weight(Particle particle, float* z, float (&Q_mat)[2][2]){
     // dotproduct = dot_product(dx, result);
     dotproduct = result[0]*result[0] + result[1]*result[1];
     num = (float)exp(-0.5 * dotproduct);
-    den = (float)sqrt(2.0 * M_PI * det(Sf));
+    den = (float)sqrt(2.0 * _Pi * det(Sf));
     
     return (num/den);
 }
@@ -878,8 +890,55 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
     }
 }
 
+component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream_in<float> &matrix2, hls_stable_argument int n){
+    hls_memory hls_singlepump float mat_1[ROWS][COLS]; // initialize default 3x3 matrix
+
+    hls_memory hls_singlepump float mat_2[ROWS][COLS];
+
+    hls_register float inter[ROWS][COLS];
+
+
+    for (int i = 0; i < ROWS; i++){
+        for (int j = 0; j < COLS; j++){
+            if(i < n && j < n){
+                mat_1[i][j] = 0.0f;
+                mat_2[i][j] = 0.0f;
+                inter[i][j] = 0.0f;
+            }
+        }
+    }
+
+    #pragma loop_coalesce 2 // make these two loops into one continuous loop
+    for (int i = 0; i < ROWS; i++){
+        for (int j = 0; j < COLS; j++){
+            // if(i < n && j < n){
+            mat_1[i][j] = matrix1.read();
+            inter[i][j] = matrix2.read();
+            // }
+        }
+    }
+
+
+    for (int rows =  0; rows < ROWS; rows++){
+        for (int cols = 0; cols < COLS; cols++){ 
+            if(rows < n && cols < n){ // make sure we don't over run the array
+                float sum= 0.0f;
+                // this loop can be unrolled k times
+                #pragma unroll // unroll this loop fully 
+                for (int k = 0; k < COLS; k++){
+                    if(k < n){
+                    sum+= mat_1[rows][k]*inter[k][cols];  
+                    }
+                }
+                mat_2[rows][cols] = sum;
+            }
+        }
+    }
+}
+
+
 void mult_mat(float** matrix1, float** matrix2, int n){
-    float inter[n][n]; 
+    float inter[3][3]; 
     uint8_t i = 0;
     uint8_t j = 0;
     uint8_t k = 0;
@@ -888,13 +947,20 @@ void mult_mat(float** matrix1, float** matrix2, int n){
             inter[i][j] = matrix2[i][j];
         }
     }
-
+    
+    /*Pipelining: at this point we do n*n max operations per cycle of i; 
+    unroll loop j and k ==> partition inter matrix fully (k and j unrolled)
+    partition matrix1 in dimension 2 by k      
+    partition matrix2 in the j index by n
+    */
     for (i = 0; i < n; i++){
-        for (j = 0; j < n; j++){
-            matrix2[i][j] = 0;
+        for (j = 0; j < n; j++){ 
+            float sum= 0.0f;
+            // this loop can be unrolled k times
             for (k = 0; k < n; k++){
-                matrix2[i][j] += matrix1[i][k]*inter[k][j];
+                sum+= matrix1[i][k]*inter[k][j];
             }
+            matrix2[i][j] = sum;
         }
     }
 }
@@ -941,7 +1007,7 @@ float* motion_model(float* states, float* control){
 }
 
 float pi_2_pi(float value){ 
-    return fmod(value + M_PI, 2*M_PI) - M_PI;
+    return fmod(value + _Pi, 2*_Pi) - _Pi;
 }
 
 void calc_input(float time, float* u){

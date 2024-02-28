@@ -17,14 +17,16 @@
 #define TOTAL_NUM_PARTICLES 100
 #define N_RESAMPLE NUM_PARTICLES/2
 #define OFFSET_YAW_RATE_NOISE 0.01
+#define ROWS 3
+#define COLS 3
 
 // Q diagonal matrix 3.0 and 10pi/180 in the diagonals
-float Q_matrix[2][2] = {{9.0, 0.0}, {0.0, (float)pow(10.0*M_PI/180, 2)}};
+float Q_matrix[2][2] = {{9.0, 0.0}, {0.0, (float)pow(10.0*_Pi/180, 2)}};
 // R diagonal matrix
-float R_matrix[2][2] = {{1.0, 0.0}, {0.0, (float)pow(20.0*M_PI/180, 2)}};
+float R_matrix[2][2] = {{1.0, 0.0}, {0.0, (float)pow(20.0*_Pi/180, 2)}};
 
-float Q_sim[2][2] = {{(float)pow(0.3, 2), 0.0}, {0.0, (float)pow(2.0*M_PI/180, 2)}};
-float R_sim[2][2] = {{(float)pow(0.5, 2), 0.0}, {0.0, (float)pow(10.0*M_PI/180, 2)}};
+float Q_sim[2][2] = {{(float)pow(0.3, 2), 0.0}, {0.0, (float)pow(2.0*_Pi/180, 2)}};
+float R_sim[2][2] = {{(float)pow(0.5, 2), 0.0}, {0.0, (float)pow(10.0*_Pi/180, 2)}};
 
 // float scale_factor = (float)pow(2, -18);
 int num_bits = 16; 
