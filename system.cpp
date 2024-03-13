@@ -15,6 +15,8 @@
 #include "HLS\math.h"
 #include "HLS\extendedmath.h"
 #include "HLS\hls.h"
+#include "HLS\stdio.h" // to be able to use printf properly
+
 
 //stuff 
 using namespace std;
@@ -536,7 +538,8 @@ bool cholesky_decomp(float** S, float* vector_b, int n){
     // forward substitution solving Ly = b 
     for(int j = 0; j < n; j ++){ // j = 0; j 1
         if(S[j][j] <= 0){
-            cout << "Matrix is not positive definite" << endl; 
+            printf("Matrix is not positive definite \n");
+            // cout << "Matrix is not positive definite" << endl; 
             return false;
         }
         S[j][j] = (float)sqrt(S[j][j]); // costly sqrt operation 
@@ -890,58 +893,60 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
     }
 }
 
-component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream_in<float> &matrix2, hls_stable_argument int n){
-    hls_memory hls_singlepump float mat_1[ROWS][COLS]; // initialize default 3x3 matrix
+// component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream_in<float> &matrix2, hls_stable_argument int n){
+//     hls_memory hls_singlepump float mat_1[ROWS][COLS]; // initialize default 3x3 matrix
 
-    hls_memory hls_singlepump float mat_2[ROWS][COLS];
+//     hls_memory hls_singlepump float mat_2[ROWS][COLS];
 
-    hls_register float inter[ROWS][COLS];
-
-
-    for (int i = 0; i < ROWS; i++){
-        for (int j = 0; j < COLS; j++){
-            if(i < n && j < n){
-                mat_1[i][j] = 0.0f;
-                mat_2[i][j] = 0.0f;
-                inter[i][j] = 0.0f;
-            }
-        }
-    }
-
-    #pragma loop_coalesce 2 // make these two loops into one continuous loop
-    for (int i = 0; i < ROWS; i++){
-        for (int j = 0; j < COLS; j++){
-            // if(i < n && j < n){
-            mat_1[i][j] = matrix1.read();
-            inter[i][j] = matrix2.read();
-            // }
-        }
-    }
+//     hls_register float inter[ROWS][COLS];
 
 
-    for (int rows =  0; rows < ROWS; rows++){
-        for (int cols = 0; cols < COLS; cols++){ 
-            if(rows < n && cols < n){ // make sure we don't over run the array
-                float sum= 0.0f;
-                // this loop can be unrolled k times
-                #pragma unroll // unroll this loop fully 
-                for (int k = 0; k < COLS; k++){
-                    if(k < n){
-                    sum+= mat_1[rows][k]*inter[k][cols];  
-                    }
-                }
-                mat_2[rows][cols] = sum;
-            }
-        }
-    }
-}
+//     for (int i = 0; i < ROWS; i++){
+//         for (int j = 0; j < COLS; j++){
+//             if(i < n && j < n){
+//                 mat_1[i][j] = 0.0f;
+//                 mat_2[i][j] = 0.0f;
+//                 inter[i][j] = 0.0f;
+//             }
+//         }
+//     }
+
+//     #pragma loop_coalesce 2 // make these two loops into one continuous loop
+//     for (int i = 0; i < ROWS; i++){
+//         for (int j = 0; j < COLS; j++){
+//             // if(i < n && j < n){
+//             mat_1[i][j] = matrix1.read();
+//             inter[i][j] = matrix2.read();
+//             // }
+//         }
+//     }
+
+
+//     for (int rows =  0; rows < ROWS; rows++){
+//         for (int cols = 0; cols < COLS; cols++){ 
+//             if(rows < n && cols < n){ // make sure we don't over run the array
+//                 float sum= 0.0f;
+//                 // this loop can be unrolled k times
+//                 #pragma unroll // unroll this loop fully 
+//                 for (int k = 0; k < COLS; k++){
+//                     if(k < n){
+//                     sum+= mat_1[rows][k]*inter[k][cols];  
+//                     }
+//                 }
+//                 mat_2[rows][cols] = sum;
+//             }
+//         }
+//     }
+// }
 
 
 void mult_mat(float** matrix1, float** matrix2, int n){
-    float inter[3][3]; 
+    float inter[3][3]; // let inter be
     uint8_t i = 0;
     uint8_t j = 0;
     uint8_t k = 0;
+
+    // copy matrix 2 into inter
     for (i = 0; i < n; i++){
         for (j = 0; j < n; j++){
             inter[i][j] = matrix2[i][j];
@@ -956,7 +961,8 @@ void mult_mat(float** matrix1, float** matrix2, int n){
     for (i = 0; i < n; i++){
         for (j = 0; j < n; j++){ 
             float sum= 0.0f;
-            // this loop can be unrolled k times
+            // this loop can be unrolled k times 
+            // inter is being access in column major order 
             for (k = 0; k < n; k++){
                 sum+= matrix1[i][k]*inter[k][j];
             }
@@ -1124,8 +1130,8 @@ int main(){
     float ave_min = 0; 
     float ave_max = 0; 
 
-    
-    std::cout << "We starting FastSLAM execution now!" << endl; 
+    printf("We are starting FASTSLAM execution now! \n");
+    // std::cout << "We starting FastSLAM execution now!" << endl; 
 
     float** RFID = new float*[8]; 
     for (int i = 0; i < 8; i++){
@@ -1249,7 +1255,8 @@ int main(){
 
     // std::cout << "Min value: " << " " << min_value << endl; 
     // std::cout << "Max value: " << " " << max_value << endl; 
-    std::cout << "made that shit" << endl;  
+    printf("made that shit \n");
+    // std::cout << "made that shit" << endl;  
     return 1; 
 
     // int n = 2; 

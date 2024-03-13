@@ -1,17 +1,20 @@
 CC=g++
+HL=i++
 CFLAGS=-g3
 IFLAGS=-isystem /usr/local/systemc-2.3.2/include
 LFLAGS=-lsystemc -lm -L/usr/local/systemc-2.3.2/lib-linux64
 DEPS=system.h
-OBJS=system.o
+DEVICE=Arria10
+FILE=system
 
-%.o: %.cpp $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS) $(IFLAGS)
+all: 
 
-sad: $(OBJS)
-	$(CC) -o $@ $^ $(CFLAGS) $(LFLAGS)
+gpp: $(FILE).cpp $(DEPS)
+	$(CC) $(CFLAGS) $(IFLAGS) -o $(FILE).out
 
-.PHONY: clean
+emu: $(FILE).cpp $(DEPS)
+	$(HL) $(CFLAGS) $(LFLAGS) $(FILE).cpp -o $(FILE)_emu.out
 
-clean:
-	rm -f $(OBJS) sad
+fpga: $(FILE).cpp $(DEPS)
+	$(HL) $(CFLAGS) $(LFLAGS) $(FILE).cpp -o $(FILE)_fpga.out -march=$ (DEVICE)
+
