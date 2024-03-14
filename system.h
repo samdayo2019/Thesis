@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <vector>
 
+#include "HLS\extendedmath.h"
 
 // FastSLAM constants
 #define TICK 0.1

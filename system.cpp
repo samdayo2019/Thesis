@@ -2,13 +2,14 @@
 #include <string>
 #include <fstream>
 #include <iomanip>
-#include <sys/time.h>
+// #include <sys/time.h>
 #include <queue>
 #include <vector>
 #include <cstdlib>
 #include <random>
 #include <iostream>
-#include <bits/stdc++.h>
+// #include <bits/stdc++.h>
+#include "HLS\extendedmath.h"
 
 //stuff 
 using namespace std;
@@ -879,7 +880,7 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
 }
 
 void mult_mat(float** matrix1, float** matrix2, int n){
-    float inter[n][n]; 
+    float inter[3][3]; 
     uint8_t i = 0;
     uint8_t j = 0;
     uint8_t k = 0;
