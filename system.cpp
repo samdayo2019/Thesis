@@ -946,26 +946,42 @@ float pi_2_pi(float value){
 }
 
 void calc_input(float time, float* u){
-    if(time <= 2.98){
-        u[0] = 0.0; 
-        u[1] = 0.0;
+    if(time <= 14.98){
+        u[0] = 1.0; 
+        u[1] = 0.1;
     }
-    // else{
+    else if(time <= 29.98){
+        u[0] = 1.0; 
+        u[1] = 0.2;
+    }
+    else{
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_real_distribution<float> distribution(0, 1.0);
+        u[0] = distribution(gen); 
+        // random_device rd;
+        // mt19937 gen(rd());
+        uniform_real_distribution<float> distribution2(-0.2, 0.2);
+        u[1] = distribution2(gen);
+    }
+    // // else{
+    // //     u[0] = 1.0; 
+    // //     u[1] = 0.1; 
+    // // }
+    // else if(time > 2.98 && time <= 15.0){
     //     u[0] = 1.0; 
     //     u[1] = 0.1; 
     // }
-    else if(time > 2.98 && time <= 15.0){
-        u[0] = 1.0; 
-        u[1] = 0.1; 
-    }
-    else if(time > 15.0 && time <= 30.0){
-        u[0] = 0.7; 
-        u[1] = 0.1;
-    }
-    else{
-        u[0] = 0.5; 
-        u[1] = 0.05;
-    }
+    // else if(time > 15.0 && time <= 30.0){
+    //     u[0] = 0.7; 
+    //     u[1] = 0.1;
+    // }
+    // else{
+    //     u[0] = 0.5; 
+    //     u[1] = 0.05;
+    // }
+    // u[0] = 1.0; 
+    // u[1] = 0.2;
 }
 
 void calc_final_state(Particle* particles, float* xEst){
@@ -1060,7 +1076,7 @@ int main(){
     float ave_max = 0; 
 
     
-    std::cout << "We starting FastSLAM execution now!" << endl; 
+    // std::cout << "We starting FastSLAM execution now!" << endl; 
 
     float** RFID = new float*[8]; 
     for (int i = 0; i < 8; i++){
@@ -1184,8 +1200,8 @@ int main(){
 
     // std::cout << "Min value: " << " " << min_value << endl; 
     // std::cout << "Max value: " << " " << max_value << endl; 
-    std::cout << "made that shit" << endl;  
-    return 1; 
+    // std::cout << "made that shit" << endl;  
+    return 0; 
 
     // int n = 2; 
 
