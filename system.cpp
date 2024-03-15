@@ -9,13 +9,14 @@
 #include <random>
 #include <iostream>
 #include <math.h>
+// #include <corecrt_math_defines.h>
 // #include <bits/stdc++.h>
 
 //Includes for HLS
-#include "HLS\math.h"
-#include "HLS\extendedmath.h"
-#include "HLS\hls.h"
-#include "HLS\stdio.h" // to be able to use printf properly
+// #include "HLS\math.h"
+// #include "HLS\extendedmath.h"
+// #include "HLS\hls.h"
+// #include "HLS\stdio.h" // to be able to use printf properly
 
 
 using namespace std;
@@ -814,7 +815,7 @@ float compute_weight(Particle particle, float* z, float (&Q_mat)[2][2]){
     // dotproduct = dot_product(dx, result);
     dotproduct = result[0]*result[0] + result[1]*result[1];
     num = (float)exp(-0.5 * dotproduct);
-    den = (float)sqrt(2.0 * M_PI * det(Sf));
+    den = (float)sqrt(2.0 * pi * det(Sf));
     
     return (num/den);
 }
@@ -963,17 +964,17 @@ void motion_model(float* states, float* control){
 
 float pi_2_pi(float value){
     // if(inside == 1){
-    //     printf("M_PI: %f; value: %f, sum: %f\n", M_PI, value, value + M_PI);
+    //     printf("pi: %f; value: %f, sum: %f\n", pi, value, value + pi);
     // } 
-    float new_value = fmod(value + M_PI, 2*M_PI);
+    float new_value = fmod(value + pi, 2*pi) - pi;
     // if(inside == 1){
     //     printf("Mapped value: %f\n", new_value);
     // }
-    if (new_value < -M_PI) {
-        new_value += 2 * M_PI;
-    } else if (new_value > M_PI) {
-        new_value -= 2 * M_PI;
-    }
+    // if (new_value < -pi) {
+    //     new_value += 2 * pi;
+    // } else if (new_value > pi) {
+    //     new_value -= 2 * pi;
+    // }
     // if(inside == 1){
     //     printf("Mapped value 2: %f\n", new_value);
     // }
@@ -1162,27 +1163,27 @@ int main(){
             particles[i] = Particle(num_landmarks);
         }
 
-        // hxEst = xEst; 
-        // hxDR = xDR; 
-        // hxTrue = xTrue;
+        hxEst = xEst; 
+        hxDR = xDR; 
+        hxTrue = xTrue;
 
-        // // create file to store the particle data 
-        // ofstream outputFile("particleData.csv");
-        // ofstream outputFile2("historyData.csv");
-        // ofstream outputFile3("Landmark_coords.csv");
+        // create file to store the particle data 
+        ofstream outputFile("particleData.csv");
+        ofstream outputFile2("historyData.csv");
+        ofstream outputFile3("Landmark_coords.csv");
 
-        // // making the format for the file
-        // outputFile << "Time" << "," << "Particle" << "," << "Particle x" << "," << "Particle y" << "," << "Landmark 1 x" << "," << "Landmark 1 y" << "," << "Landmark 2 x" << "," << "Landmark 2 y" << "," << "Landmark 3 x" << "," << "Landmark 3 y" << "," << "Landmark 4 x" << "," << "Landmark 4 y"<< "," << "Landmark 5 x" << "," << "Landmark 5 y" << "," << "Landmark 6 x" << "," << "Landmark 6 y" << "," << "Landmark 7 x" << "," << "Landmark 7 y" << "," << "Landmark 8 x" << "," << "Landmark 8 y" << endl;   
-        // outputFile2 << "Time" << "," << "hxTrue x" << "," << "hxTrue y" << "," << "hxDr x" << "," << "hxDR y" << "," << "hxEst x" << "," << "hxEst y" << endl;
-        // outputFile3 << "Landmark x" << "," << "Landmark y" << endl;
+        // making the format for the file
+        outputFile << "Time" << "," << "Particle" << "," << "Particle x" << "," << "Particle y" << "," << "Landmark 1 x" << "," << "Landmark 1 y" << "," << "Landmark 2 x" << "," << "Landmark 2 y" << "," << "Landmark 3 x" << "," << "Landmark 3 y" << "," << "Landmark 4 x" << "," << "Landmark 4 y"<< "," << "Landmark 5 x" << "," << "Landmark 5 y" << "," << "Landmark 6 x" << "," << "Landmark 6 y" << "," << "Landmark 7 x" << "," << "Landmark 7 y" << "," << "Landmark 8 x" << "," << "Landmark 8 y" << endl;   
+        outputFile2 << "Time" << "," << "hxTrue x" << "," << "hxTrue y" << "," << "hxDr x" << "," << "hxDR y" << "," << "hxEst x" << "," << "hxEst y" << endl;
+        outputFile3 << "Landmark x" << "," << "Landmark y" << endl;
         
-        // for(int i = 0; i < num_landmarks; i++){
-        //     for (int j = 0; j < 2; j++){
-        //         if(j < 1) outputFile3 << RFID[i][j] << ",";
-        //         else outputFile3 << RFID[i][j];
-        //     }
-        //     outputFile3 << endl;
-        // }
+        for(int i = 0; i < num_landmarks; i++){
+            for (int j = 0; j < 2; j++){
+                if(j < 1) outputFile3 << RFID[i][j] << ",";
+                else outputFile3 << RFID[i][j];
+            }
+            outputFile3 << endl;
+        }
 
         while(SIM_TICK>= time_step){
             time_step += TICK; 
@@ -1198,30 +1199,30 @@ int main(){
             // calc_final_state(particles, xEst);
 
 
-            // // populates the text file holding all the particles values through all the time steps 
-            // if(outputFile.is_open()){
-            //     int i = 0;
-            //     for(i = 0; i < TOTAL_NUM_PARTICLES; i++){
-            //         if(i < NUM_PARTICLES){
-            //             outputFile << time_step << "," << i << "," << particles[i].x << "," << particles[i].y; 
-            //             for (int j = 0; j < 8; j++){
-            //                 for (int k = 0; k < 2; k++){
-            //                     outputFile << "," << particles[i].lm[j][k]; 
-            //                 }
-            //             }
-            //             outputFile << endl; 
-            //         }
-            //     }
-            // }
-            // if(outputFile2.is_open()){
-            //     outputFile2 << time_step << "," << xTrue[0] << "," << xTrue[1] << "," << xDR[0] << "," << xDR[1] << "," << xEst[0] << "," << xEst[1] << endl; 
-            // }
+            // populates the text file holding all the particles values through all the time steps 
+            if(outputFile.is_open()){
+                int i = 0;
+                for(i = 0; i < TOTAL_NUM_PARTICLES; i++){
+                    if(i < NUM_PARTICLES){
+                        outputFile << time_step << "," << i << "," << particles[i].x << "," << particles[i].y; 
+                        for (int j = 0; j < 8; j++){
+                            for (int k = 0; k < 2; k++){
+                                outputFile << "," << particles[i].lm[j][k]; 
+                            }
+                        }
+                        outputFile << endl; 
+                    }
+                }
+            }
+            if(outputFile2.is_open()){
+                outputFile2 << time_step << "," << xTrue[0] << "," << xTrue[1] << "," << xDR[0] << "," << xDR[1] << "," << xEst[0] << "," << xEst[1] << endl; 
+            }
 
 
         }
-        // outputFile.close();
-        // outputFile2.close();
-        // outputFile3.close(); 
+        outputFile.close();
+        outputFile2.close();
+        outputFile3.close(); 
     // ave_max += max_value; 
     // ave_min += min_value;
 
