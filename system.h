@@ -4,6 +4,7 @@
 #include <cmath>
 #include <stdint.h>
 #include <vector>
+#include "HLS\extendedmath.h"
 
 
 // FastSLAM constants
@@ -21,35 +22,20 @@
 #define COLS 3
 
 // Q diagonal matrix 3.0 and 10pi/180 in the diagonals
-float Q_matrix[2][2] = {{9.0, 0.0}, {0.0, (float)pow(10.0*_Pi/180, 2)}};
+float Q_matrix[2][2] = {{9.0, 0.0}, {0.0, (float)pow(10.0*M_PI/180, 2)}};
 // R diagonal matrix
-float R_matrix[2][2] = {{1.0, 0.0}, {0.0, (float)pow(20.0*_Pi/180, 2)}};
+float R_matrix[2][2] = {{1.0, 0.0}, {0.0, (float)pow(20.0*M_PI/180, 2)}};
 
-float Q_sim[2][2] = {{(float)pow(0.3, 2), 0.0}, {0.0, (float)pow(2.0*_Pi/180, 2)}};
-float R_sim[2][2] = {{(float)pow(0.5, 2), 0.0}, {0.0, (float)pow(10.0*_Pi/180, 2)}};
-
-// float scale_factor = (float)pow(2, -18);
-int num_bits = 16; 
-int max_range = 300;
-float scale_factor = (pow(2,num_bits-1) - 1)/max_range;
-
-float min_det = 100000000;
-float max_det = -10000000;
-
-int bits = 16;
-
-float max_val = (2^(bits-1)-1); 
-float min_val = -(2^(bits - 1));
-
-float min_value = 10000000000; 
-float max_value = 0;
-
-float check = 0; 
-
+float Q_sim[2][2] = {{(float)pow(0.3, 2), 0.0}, {0.0, (float)pow(2.0*M_PI/180, 2)}};
+float R_sim[2][2] = {{(float)pow(0.5, 2), 0.0}, {0.0, (float)pow(10.0*M_PI/180, 2)}};
 
 bool shown_animation = true; 
 
 int num_landmarks = 0;
+
+float check = 0; 
+
+float time_step = 0;
 
 class Particle
 {
@@ -67,14 +53,14 @@ public:
 };
 
 
-float* motion_model(float* states, float* control);
+void motion_model(float* states, float* control);
 Particle update_landmark(Particle particle, float *z, float (&Q_mat)[2][2]);
 Particle* update_with_observation(Particle* particles, float** z, int num_cols);
 Particle add_new_landmark(Particle particle, float *z, float (&Q_mat)[2][2]);
 
 void transpose_mat(float** matrix);
 
-float* motion_model(float* states, float* control);
+// float* motion_model(float* states, float* control);
 float pi_2_pi(float value);
 
 void mult_mat(float** matrix1, float** matrix2, int n);

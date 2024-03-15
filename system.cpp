@@ -18,7 +18,6 @@
 #include "HLS\stdio.h" // to be able to use printf properly
 
 
-//stuff 
 using namespace std;
 
 Particle::Particle(int num_landmarks)
@@ -66,6 +65,8 @@ Particle::Particle(int num_landmarks)
 Particle* fast_slam1(Particle* particles, float* control, float** z, int num_cols){
     particles = predict_particles(particles, control);
 
+    // printf("Particle 0 x coordinate: %f; y coordinate: %f \n", particles[0].x, particles[0].y);
+
     particles = update_with_observation(particles, z, num_cols);
   
     particles = resampling(particles);
@@ -75,6 +76,8 @@ Particle* fast_slam1(Particle* particles, float* control, float** z, int num_col
 
 // control is a 2d vector (v, w)
 Particle* predict_particles(Particle* particles, float* control){
+    // printf("Pre Particle 0 x coordinate: %f; y coordinate: %f \n", particles[0].x, particles[0].y);
+
     float* px;
     float state[STATE_SIZE];
     px = state;
@@ -100,6 +103,7 @@ Particle* predict_particles(Particle* particles, float* control){
 
         noise[0] = distribution1(gen); 
         noise[1] = distribution2(gen);
+        // printf("Noise 1: %f; Noise 2: %f \n", noise[0], noise[1]);
 
         for (j = 0; j < 2; j++){
             float sum = 0.0;
@@ -115,14 +119,20 @@ Particle* predict_particles(Particle* particles, float* control){
         prod[0] += control[0];
         prod[1] += control[1];
 
+        // if(i < 2) printf("Pre Px 1: %f; Pre Px 2: %f; Pre Px 3: %f \n", px[0], px[1], px[2]);
+
         //Returns the particle's estimated position using the noise motion command and it's initial known state vector
-        px = motion_model(px, prod); // pxrod= u + noise*r matrix --> add gaussian noise to the command accounting for our coveriance
+        printf("Time: %f; px: %f, %f, %f\n", time_step, px[0], px[1], px[2]);
+        motion_model(px, prod); // pxrod= u + noise*r matrix --> add gaussian noise to the command accounting for our coveriance
         
         particles[i].x = px[0];
         particles[i].y = px[1];
         particles[i].yaw = px[2];
 
+        // if(i < 2) printf("Post Px 1: %f; Post Px 2: %f; Post Px 3: %f \n", px[0], px[1], px[2]);
     }
+    // printf("Post Particle 0 x coordinate: %f; y coordinate: %f \n", particles[0].x, particles[0].y);
+
     return particles; 
 }
 
@@ -523,11 +533,6 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
     }
 }
 
-component bool cholesky_decomp(ihc::stream_in<float> &sMatrix, ihc::stream_in<float> &b_vector,
-    hls_stable_argument int n){
-
-    }
-
 bool cholesky_decomp(float** S, float* vector_b, int n){
     for(int i = 0; i < n; i++){
         for(int j = i + 1; j < n; j++){
@@ -538,21 +543,19 @@ bool cholesky_decomp(float** S, float* vector_b, int n){
     // forward substitution solving Ly = b 
     for(int j = 0; j < n; j ++){ // j = 0; j 1
         if(S[j][j] <= 0){
-            printf("Matrix is not positive definite \n");
             // cout << "Matrix is not positive definite" << endl; 
             return false;
         }
         S[j][j] = (float)sqrt(S[j][j]); // costly sqrt operation 
-        
+        // S[j][j] = clamp((float)sqrt(S[j][j]), -512, 511.984375); // costly sqrt operation 
         vector_b[j] = vector_b[j] / S[j][j]; 
-        
-        for(int i = j + 1; i < n; i++){ // variable loop trip count --> means this can't be pipelined --> need to fix
+        // vector_b[j] = clamp(vector_b[j] / S[j][j], -512, 511.984375); 
+        for(int i = j + 1; i < n; i++){
             if(i < n){
                 S[i][j] = S[i][j] / S[j][j]; 
-                
+                // S[i][j] = clamp(S[i][j] / S[j][j], -512, 511.984375); 
                 vector_b[i] = vector_b[i] - S[i][j]*vector_b[j];
-                
-                // this loop can be unrolled. S[i][j] can be read before the loop begins
+                // vector_b[i] = clamp(vector_b[i] - S[i][j]*vector_b[j], -512, 511.984375);
                 for(int k = j + 1; k < i + 1; k++){
                     S[i][k] = S[i][k] - (S[i][j] * S[k][j]);
                     // S[i][k] = clamp(S[i][k] - (S[i][j] * S[k][j]), -512, 511.984375);
@@ -811,7 +814,7 @@ float compute_weight(Particle particle, float* z, float (&Q_mat)[2][2]){
     // dotproduct = dot_product(dx, result);
     dotproduct = result[0]*result[0] + result[1]*result[1];
     num = (float)exp(-0.5 * dotproduct);
-    den = (float)sqrt(2.0 * _Pi * det(Sf));
+    den = (float)sqrt(2.0 * M_PI * det(Sf));
     
     return (num/den);
 }
@@ -893,80 +896,23 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
     }
 }
 
-// component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream_in<float> &matrix2, hls_stable_argument int n){
-//     hls_memory hls_singlepump float mat_1[ROWS][COLS]; // initialize default 3x3 matrix
-
-//     hls_memory hls_singlepump float mat_2[ROWS][COLS];
-
-//     hls_register float inter[ROWS][COLS];
-
-
-//     for (int i = 0; i < ROWS; i++){
-//         for (int j = 0; j < COLS; j++){
-//             if(i < n && j < n){
-//                 mat_1[i][j] = 0.0f;
-//                 mat_2[i][j] = 0.0f;
-//                 inter[i][j] = 0.0f;
-//             }
-//         }
-//     }
-
-//     #pragma loop_coalesce 2 // make these two loops into one continuous loop
-//     for (int i = 0; i < ROWS; i++){
-//         for (int j = 0; j < COLS; j++){
-//             // if(i < n && j < n){
-//             mat_1[i][j] = matrix1.read();
-//             inter[i][j] = matrix2.read();
-//             // }
-//         }
-//     }
-
-
-//     for (int rows =  0; rows < ROWS; rows++){
-//         for (int cols = 0; cols < COLS; cols++){ 
-//             if(rows < n && cols < n){ // make sure we don't over run the array
-//                 float sum= 0.0f;
-//                 // this loop can be unrolled k times
-//                 #pragma unroll // unroll this loop fully 
-//                 for (int k = 0; k < COLS; k++){
-//                     if(k < n){
-//                     sum+= mat_1[rows][k]*inter[k][cols];  
-//                     }
-//                 }
-//                 mat_2[rows][cols] = sum;
-//             }
-//         }
-//     }
-// }
-
-
 void mult_mat(float** matrix1, float** matrix2, int n){
-    float inter[3][3]; // let inter be
+    float inter[3][3]; 
     uint8_t i = 0;
     uint8_t j = 0;
     uint8_t k = 0;
-
-    // copy matrix 2 into inter
     for (i = 0; i < n; i++){
         for (j = 0; j < n; j++){
             inter[i][j] = matrix2[i][j];
         }
     }
-    
-    /*Pipelining: at this point we do n*n max operations per cycle of i; 
-    unroll loop j and k ==> partition inter matrix fully (k and j unrolled)
-    partition matrix1 in dimension 2 by k      
-    partition matrix2 in the j index by n
-    */
+
     for (i = 0; i < n; i++){
-        for (j = 0; j < n; j++){ 
-            float sum= 0.0f;
-            // this loop can be unrolled k times 
-            // inter is being access in column major order 
+        for (j = 0; j < n; j++){
+            matrix2[i][j] = 0;
             for (k = 0; k < n; k++){
-                sum+= matrix1[i][k]*inter[k][j];
+                matrix2[i][j] += matrix1[i][k]*inter[k][j];
             }
-            matrix2[i][j] = sum;
         }
     }
 }
@@ -978,21 +924,24 @@ void transpose_mat(float** matrix){
     matrix[1][0] = b;  
 }
 
-float* motion_model(float* states, float* control){
+void motion_model(float* states, float* control){
     float f[3][3] = {{1.0, 0, 0}, {0, 1.0, 0}, {0, 0, 1.0}}; // --> identity matrix to simply extract each part of the state vector
-    float B[3][2] = {{TICK*cos(states[2]), 0}, {TICK*sin(states[2]), 0}, {0.0, TICK}}; //
+    float B[3][2] = {{(float)TICK*cos(states[2]), 0}, {(float)TICK*sin(states[2]), 0}, {0.0, (float)TICK}}; //
     float int_1[3] = {0.0, 0.0, 0.0};
     float int_2[3] = {0.0, 0.0, 0.0};
     float sum = 0.0;
-
     // compute F*X
     for (int i = 0; i < 3; i++){
         sum = 0.0; 
         for (int j = 0; j < 3; j++){
             sum+= f[i][j]*states[j];
         }
+        // printf("i: %d, sum = %f\n", i, sum);
         int_1[i] = sum;
     }
+
+    // printf("States: %f, %f, %f \n", states[0], states[1], states[2]);
+
     // compute B*U
     for (int i = 0; i < 3; i++){
         sum = 0.0; 
@@ -1009,11 +958,26 @@ float* motion_model(float* states, float* control){
     // here x = x + 
 
     states[2] = pi_2_pi(states[2]); 
-    return states;
+    // return states;
 }
 
-float pi_2_pi(float value){ 
-    return fmod(value + _Pi, 2*_Pi) - _Pi;
+float pi_2_pi(float value){
+    // if(inside == 1){
+    //     printf("M_PI: %f; value: %f, sum: %f\n", M_PI, value, value + M_PI);
+    // } 
+    float new_value = fmod(value + M_PI, 2*M_PI);
+    // if(inside == 1){
+    //     printf("Mapped value: %f\n", new_value);
+    // }
+    if (new_value < -M_PI) {
+        new_value += 2 * M_PI;
+    } else if (new_value > M_PI) {
+        new_value -= 2 * M_PI;
+    }
+    // if(inside == 1){
+    //     printf("Mapped value 2: %f\n", new_value);
+    // }
+    return new_value; 
 }
 
 void calc_input(float time, float* u){
@@ -1021,22 +985,22 @@ void calc_input(float time, float* u){
         u[0] = 0.0; 
         u[1] = 0.0;
     }
-    // else{
-    //     u[0] = 1.0; 
-    //     u[1] = 0.1; 
-    // }
-    else if(time > 2.98 && time <= 15.0){
+    else{
         u[0] = 1.0; 
         u[1] = 0.1; 
     }
-    else if(time > 15.0 && time <= 30.0){
-        u[0] = 0.7; 
-        u[1] = 0.1;
-    }
-    else{
-        u[0] = 0.5; 
-        u[1] = 0.05;
-    }
+    // else if(time > 2.98 && time <= 15.0){
+    //     u[0] = 1.0; 
+    //     u[1] = 0.1; 
+    // }
+    // else if(time > 15.0 && time <= 30.0){
+    //     u[0] = 0.7; 
+    //     u[1] = 0.1;
+    // }
+    // else{
+    //     u[0] = 0.5; 
+    //     u[1] = 0.05;
+    // }
 }
 
 void calc_final_state(Particle* particles, float* xEst){
@@ -1061,8 +1025,10 @@ float** observation(float* xTrue, float* xd, float* u, float** rfid, uint8_t num
     random_device rd; 
     mt19937 gen(rd()); 
     // uniform_real_distribution<float> distribution(0, 1.0); 
+    printf("time: %f, xTrue (states obs) is: %f, %f, %f \n", time_step, xTrue[0], xTrue[1], xTrue[2]);
 
-    xTrue = motion_model(xTrue, u); // return the true trajectory from the motion model (no noise)
+    motion_model(xTrue, u); // return the true trajectory from the motion model (no noise)
+    // printf("time: %f, xTrue is: %f, %f, %f \n", time_step, xTrue[0], xTrue[1], xTrue[2]);
     vector<vector<float>> z_new = {{0}, {0}, {0}}; 
     float* zi = new float[3];
     float dx, dy, d, angle, dn, angle_noisy;
@@ -1072,22 +1038,31 @@ float** observation(float* xTrue, float* xd, float* u, float** rfid, uint8_t num
 
     for(i = 0; i < num_id; i++){
         dx = rfid[i][0] - xTrue[0];
+        // printf("i is: %d, RFID[0]: %f\n", i, rfid[i][0]);
         dy = rfid[i][1] - xTrue[1];
+        // printf("i is: %d, RFID[1]: %f\n", i, rfid[i][1]);
         d = (float)hypot(dx, dy); 
+        // printf("Time is: %f; i is: %d, d is: %f\n", time_step, i, d);
         float val = atan2(dy, dx) - xTrue[2];
         angle = (float)pi_2_pi(val);
+        // printf("Time is: %f; i is: %d, Angle is: %f\n", time_step, i, angle);
         // add only the landmarks we can see (ie., within a given range of)
         if (d <= MAX_RANGE){
             // add noise to the measured distance to the landmark
             normal_distribution<float> distribution(0, 0.1);
             dn = d + distribution(gen)*pow(Q_sim[0][0], 0.5);  //gaussian noise added to our measurement
+            // printf("Time is: %f; i is: %d, dn is: %f\n", time_step, i, dn);
             normal_distribution<float> distribution2(0, 0.1); 
             angle_noisy = angle + distribution2(gen)*pow(Q_sim[1][1], 0.5); // gaussian noise added to our measurement 
             // angle_noisy = angle + distribution(gen)*pow(Q_sim[1][1], 0.5);
+            // printf("Time is: %f; i is: %d, Angle noisy is: %f\n", time_step, i, angle_noisy);
 
             // store the measurement and perform the known data association by including the landmark ID
             zi[0] = dn; 
+            // inside = 1;
             zi[1] = pi_2_pi(angle_noisy);
+            // inside = 0; 
+            // printf("Time is: %f; i is: %d, Pi 2 Pi is: %f\n", time_step, i, zi[1]);
             zi[2] = i;
             if (position == 0){
                 z_new[0][0] = zi[0];
@@ -1102,8 +1077,9 @@ float** observation(float* xTrue, float* xd, float* u, float** rfid, uint8_t num
             position++;
         }
     }
+    
     num_cols = z_new[0].size();
-
+    // printf("Num cols: %d, positions: %d\n", num_cols, position);
     for (i = 0; i < 3; i++){
         z[i] = new float[num_cols];
     }
@@ -1120,8 +1096,12 @@ float** observation(float* xTrue, float* xd, float* u, float** rfid, uint8_t num
     normal_distribution<float> distribution_cntr2(0, 0.25);
     ud[1] = u[1] + distribution_cntr2(gen)*pow(R_sim[1][1], 0.5) + OFFSET_YAW_RATE_NOISE; 
 
+    printf("Time is: %f; Xd (states obs2 is: %f, %f, %f\n", time_step, xd[0], xd[1], xd[2]);
 
-    xd = motion_model(xd, ud);
+    motion_model(xd, ud);
+
+    // printf("time: %f, xD is: %f, %f, %f, ud is: %f, %f \n", time_step, xd[0], xd[1], xd[2], ud[0], ud[1]);
+
 
     return z; 
 }
@@ -1130,8 +1110,8 @@ int main(){
     float ave_min = 0; 
     float ave_max = 0; 
 
-    printf("We are starting FASTSLAM execution now! \n");
-    // std::cout << "We starting FastSLAM execution now!" << endl; 
+    
+    std::cout << "We starting FastSLAM execution now!" << endl; 
 
     float** RFID = new float*[8]; 
     for (int i = 0; i < 8; i++){
@@ -1159,6 +1139,8 @@ int main(){
     ave_min = 0; 
     ave_max = 0; 
 
+    
+    
     for(int l = 0 ; l < 1; l++){
 
         float* xEst = new float[3];
@@ -1169,7 +1151,6 @@ int main(){
         float* hxEst = xEst; 
         float* hxTrue = xTrue; 
         float* hxDR = xDR; 
-        float time = 0;
         float* u = new float[2]; 
         float* ud = new float[2]; 
         float** z; 
@@ -1181,66 +1162,66 @@ int main(){
             particles[i] = Particle(num_landmarks);
         }
 
-        hxEst = xEst; 
-        hxDR = xDR; 
-        hxTrue = xTrue;
+        // hxEst = xEst; 
+        // hxDR = xDR; 
+        // hxTrue = xTrue;
 
-        // create file to store the particle data 
-        ofstream outputFile("particleData.csv");
-        ofstream outputFile2("historyData.csv");
-        ofstream outputFile3("Landmark_coords.csv");
+        // // create file to store the particle data 
+        // ofstream outputFile("particleData.csv");
+        // ofstream outputFile2("historyData.csv");
+        // ofstream outputFile3("Landmark_coords.csv");
 
-        // making the format for the file
-        outputFile << "Time" << "," << "Particle" << "," << "Particle x" << "," << "Particle y" << "," << "Landmark 1 x" << "," << "Landmark 1 y" << "," << "Landmark 2 x" << "," << "Landmark 2 y" << "," << "Landmark 3 x" << "," << "Landmark 3 y" << "," << "Landmark 4 x" << "," << "Landmark 4 y"<< "," << "Landmark 5 x" << "," << "Landmark 5 y" << "," << "Landmark 6 x" << "," << "Landmark 6 y" << "," << "Landmark 7 x" << "," << "Landmark 7 y" << "," << "Landmark 8 x" << "," << "Landmark 8 y" << endl;   
-        outputFile2 << "Time" << "," << "hxTrue x" << "," << "hxTrue y" << "," << "hxDr x" << "," << "hxDR y" << "," << "hxEst x" << "," << "hxEst y" << endl;
-        outputFile3 << "Landmark x" << "," << "Landmark y" << endl;
+        // // making the format for the file
+        // outputFile << "Time" << "," << "Particle" << "," << "Particle x" << "," << "Particle y" << "," << "Landmark 1 x" << "," << "Landmark 1 y" << "," << "Landmark 2 x" << "," << "Landmark 2 y" << "," << "Landmark 3 x" << "," << "Landmark 3 y" << "," << "Landmark 4 x" << "," << "Landmark 4 y"<< "," << "Landmark 5 x" << "," << "Landmark 5 y" << "," << "Landmark 6 x" << "," << "Landmark 6 y" << "," << "Landmark 7 x" << "," << "Landmark 7 y" << "," << "Landmark 8 x" << "," << "Landmark 8 y" << endl;   
+        // outputFile2 << "Time" << "," << "hxTrue x" << "," << "hxTrue y" << "," << "hxDr x" << "," << "hxDR y" << "," << "hxEst x" << "," << "hxEst y" << endl;
+        // outputFile3 << "Landmark x" << "," << "Landmark y" << endl;
         
-        for(int i = 0; i < num_landmarks; i++){
-            for (int j = 0; j < 2; j++){
-                if(j < 1) outputFile3 << RFID[i][j] << ",";
-                else outputFile3 << RFID[i][j];
-            }
-            outputFile3 << endl;
-        }
+        // for(int i = 0; i < num_landmarks; i++){
+        //     for (int j = 0; j < 2; j++){
+        //         if(j < 1) outputFile3 << RFID[i][j] << ",";
+        //         else outputFile3 << RFID[i][j];
+        //     }
+        //     outputFile3 << endl;
+        // }
 
-        while(SIM_TICK>= time){
-            time += TICK; 
-            check = time; 
+        while(SIM_TICK>= time_step){
+            time_step += TICK; 
+            check = time_step; 
             
-            calc_input(time, u);
+            calc_input(time_step, u);
             z = observation(xTrue, xDR, u, RFID, num_landmarks, ud, num_columns); 
 
             particles = fast_slam1(particles, ud, z, num_columns); 
-
+            // printf("Particle 0 x coordinate: %f; y coordinate: %f \n", particles[0].x, particles[0].y);
             calc_final_state(particles, xEst);  
             
-            calc_final_state(particles, xEst);
+            // calc_final_state(particles, xEst);
 
 
-            // populates the text file holding all the particles values through all the time steps 
-            if(outputFile.is_open()){
-                int i = 0;
-                for(i = 0; i < TOTAL_NUM_PARTICLES; i++){
-                    if(i < NUM_PARTICLES){
-                        outputFile << time << "," << i << "," << particles[i].x << "," << particles[i].y; 
-                        for (int j = 0; j < 8; j++){
-                            for (int k = 0; k < 2; k++){
-                                outputFile << "," << particles[i].lm[j][k]; 
-                            }
-                        }
-                        outputFile << endl; 
-                    }
-                }
-            }
-            if(outputFile2.is_open()){
-                outputFile2 << time << "," << xTrue[0] << "," << xTrue[1] << "," << xDR[0] << "," << xDR[1] << "," << xEst[0] << "," << xEst[1] << endl; 
-            }
+            // // populates the text file holding all the particles values through all the time steps 
+            // if(outputFile.is_open()){
+            //     int i = 0;
+            //     for(i = 0; i < TOTAL_NUM_PARTICLES; i++){
+            //         if(i < NUM_PARTICLES){
+            //             outputFile << time_step << "," << i << "," << particles[i].x << "," << particles[i].y; 
+            //             for (int j = 0; j < 8; j++){
+            //                 for (int k = 0; k < 2; k++){
+            //                     outputFile << "," << particles[i].lm[j][k]; 
+            //                 }
+            //             }
+            //             outputFile << endl; 
+            //         }
+            //     }
+            // }
+            // if(outputFile2.is_open()){
+            //     outputFile2 << time_step << "," << xTrue[0] << "," << xTrue[1] << "," << xDR[0] << "," << xDR[1] << "," << xEst[0] << "," << xEst[1] << endl; 
+            // }
 
 
         }
-        outputFile.close();
-        outputFile2.close();
-        outputFile3.close(); 
+        // outputFile.close();
+        // outputFile2.close();
+        // outputFile3.close(); 
     // ave_max += max_value; 
     // ave_min += min_value;
 
@@ -1255,8 +1236,7 @@ int main(){
 
     // std::cout << "Min value: " << " " << min_value << endl; 
     // std::cout << "Max value: " << " " << max_value << endl; 
-    printf("made that shit \n");
-    // std::cout << "made that shit" << endl;  
+    std::cout << "made that shit" << endl;  
     return 1; 
 
     // int n = 2; 
