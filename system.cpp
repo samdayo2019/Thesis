@@ -1,14 +1,14 @@
 #include "system.h"
-#include <string>
-#include <fstream>
-#include <iomanip>
+// #include <string>
+// #include <fstream>
+// #include <iomanip>
 // #include <sys/time.h>
-#include <queue>
-#include <vector>
-#include <cstdlib>
-#include <random>
-#include <iostream>
-#include <math.h>
+// #include <queue>
+// #include <vector>
+// #include <cstdlib>
+// #include <random>
+// #include <iostream>
+// #include <math.h>
 
 // #include <corecrt_math_defines.h>
 // #include <bits/stdc++.h>
@@ -18,14 +18,13 @@
 #include "HLS\extendedmath.h"
 #include "HLS\hls.h"
 #include "HLS\stdio.h" // to be able to use printf properly
+#include "HLS\rand_lib.h"
 
-
-using namespace std;
 
 Particle::Particle(int number_landmarks)
 {
-    uint8_t i;
-    uint16_t j;
+    int i;
+    int j;
     w = 1.0/number_landmarks; // each particle get uniform weight
     //each particle starts at point 0,0
     x = 0.0; 
@@ -83,12 +82,12 @@ void predict_particles(Particle* particles, float control[2]){
     // px = state;
     float noise[2], prod[2]; //we store noise as a column vector
     // float r_mat[2][2]; 
-    random_device rd; 
-    mt19937 gen(rd()); 
-    // uniform_real_distribution<float> distribution(-1.0, 1.0); 
-    normal_distribution<float> distribution1(0, 0.35); 
-    normal_distribution<float> distribution2(0, 0.35);
-    uint8_t i, j, k;
+    // std::random_device rd; 
+    // std::mt19937 gen(rd()); 
+    // // uniform_real_distribution<float> distribution(-1.0, 1.0); 
+    // std::normal_distribution<float> distribution1(0, 0.35); 
+    // std::normal_distribution<float> distribution2(0, 0.35);
+    int i, j, k;
 
     for (i = 0; i < NUM_PARTICLES; i ++){ 
         // init coln with zeroes
@@ -101,9 +100,12 @@ void predict_particles(Particle* particles, float control[2]){
         px[1] = particles[i].y;
         px[2] = particles[i].yaw;
 
-        noise[0] = distribution1(gen); 
-        noise[1] = distribution2(gen);
+        // noise[0] = distribution1(gen); 
+        // noise[1] = distribution2(gen);
         // printf("Noise 1: %f; Noise 2: %f \n", noise[0], noise[1]);
+
+        noise[0] = get_rand_gaussian(0, 0.35); 
+        noise[1] = get_rand_gaussian(0, 0.35); 
 
         for (j = 0; j < 2; j++){
             float sum = 0.0;
@@ -136,15 +138,35 @@ void predict_particles(Particle* particles, float control[2]){
     // return particles; 
 }
 
+float get_rand_gaussian(float min, float max){
+    extern RNG_Gaussian<float> randm;
+    
+    float gen_val = randm.rand();
+
+    float scaled_num = gen_val * (max - min)/sqrt(2.0) + (max + min)/2.0;
+
+    return scaled_num;
+}
+
+float get_rand_uniform(float min, float max){
+    extern RNG_Uniform<float> randn;
+    
+    float gen_val = randn.rand();
+
+    float scaled_num = gen_val * (max - min)/sqrt(2.0) + (max + min)/2.0;
+
+    return scaled_num;
+}
+
 void update_with_observation(Particle* particles, float z[STATE_SIZE][num_landmarks], int num_cols){     
-    uint8_t landmark_id = 0;
-    uint8_t i;
-    uint8_t j;
+    int landmark_id = 0;
+    int i;
+    int j;
     float obs[3] = {};
     float weight = 0;
     for (i = 0; i < num_cols; i++){
         //cout << (int)i << endl; 
-        landmark_id = (uint8_t)z[2][i]; // this assumes that the data association problem is known
+        landmark_id = (int)z[2][i]; // this assumes that the data association problem is known
         //cout << "Landmark ID" << (int)landmark_id << endl; 
         obs[0] = z[0][i]; 
         obs[1] = z[1][i];
@@ -165,7 +187,7 @@ void update_with_observation(Particle* particles, float z[STATE_SIZE][num_landma
 }  
 
 void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]){
-    uint8_t lm_id = (uint8_t)z[2];
+    int lm_id = (int)z[2];
     float xf[2] = {0.0, 0.0}; // column vector
     float pf[2][2] =  {{0,0}, {0,0}};
     float Hv[2][3] =  {{0, 0, 0}, {0, 0, 0}};
@@ -178,8 +200,8 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     float sInv[2][4] = { 0 };
     float P[3][6] = { 0 }; 
 
-    for (uint8_t i = 0; i < 3; i++){
-        for (uint8_t j = 0; j < 3; j++){
+    for (int i = 0; i < 3; i++){
+        for (int j = 0; j < 3; j++){
             P[i][j] = 0; 
             P[i][j + 3] = 0; 
         }
@@ -195,16 +217,16 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     xf[1] = particle.lm[lm_id][1];
 
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             pf[i][j] = particle.lm_cov[2*lm_id + i][j];
         }
     }
 
     compute_jacobians(particle, xf, pf, Q_mat, Hf, Hv, Sf, zp);
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             sInv[i][j] = Sf[i][j];
         }
     }
@@ -221,8 +243,8 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     dz[0] = z[0] - zp[0];
     dz[1] = pi_2_pi(z[1] - zp[1]); 
 
-    for (uint8_t i = 0; i < 3; i++){
-        for (uint8_t j = 0; j < 3; j++){
+    for (int i = 0; i < 3; i++){
+        for (int j = 0; j < 3; j++){
             P[i][j] = particle.P[i][j];
         }
     }
@@ -267,8 +289,8 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]){
 
     inverse(P, 3);
 
-    for (uint8_t i = 0; i < 3; i++){
-        for (uint8_t j = 0; j < 3; j++){
+    for (int i = 0; i < 3; i++){
+        for (int j = 0; j < 3; j++){
             particle.P[i][j] = P[i][j + 3];
             P[i][j + 3] = 0;
         }
@@ -277,8 +299,8 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     matrix_vector(Sf, dz, res);
     matrix_vector_3(HvT, res, res_2);
 
-    for (uint8_t i = 0; i < 3; i++){
-        for (uint8_t j = 0; j < 3; j++){
+    for (int i = 0; i < 3; i++){
+        for (int j = 0; j < 3; j++){
             mult_3[i][j] = particle.P[i][j];
         }
     }
@@ -291,24 +313,24 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]){
 }
 
 void matrix_vector_3(float (&matrix)[3][2], float (&vector)[2], float (&result)[3]){
-    for (uint8_t i = 0; i < 3; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 3; i++){
+        for (int j = 0; j < 2; j++){
             result[i] += matrix[i][j] * vector[j];
         }
     }
 }
 
 void matrix_vector_33(float matrix[3][3], float (&vector)[3], float (&result)[3]){
-    for (uint8_t i = 0; i < 3; i++){
-        for (uint8_t j = 0; j < 3; j++){
+    for (int i = 0; i < 3; i++){
+        for (int j = 0; j < 3; j++){
             result[i] += matrix[i][j] * vector[j];
         }
     }
 }
 
 void matrix_vector(float matrix[2][2], float (&vector)[2], float (&result)[2]){
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             result[i] += matrix[i][j] * vector[j];
         }
     }
@@ -429,7 +451,7 @@ float clamp(float val, float low, float high){
 }
 
 void update_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
-    uint8_t lm_id = (uint8_t)z[2];
+    int lm_id = (int)z[2];
     float xf[2] = {0.0, 0.0}; // column vector
     float pf[2][2] =  {{0,0}, {0,0}};
     float Hv[2][3] =  {{0, 0, 0}, {0, 0, 0}};
@@ -441,8 +463,8 @@ void update_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     xf[0] = particle.lm[lm_id][0];
     xf[1] = particle.lm[lm_id][1];
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             pf[i][j] = particle.lm_cov[2*lm_id + i][j];
         }
     }
@@ -464,8 +486,8 @@ void update_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     particle.lm[lm_id][0] = xf[0];
     particle.lm[lm_id][1] = xf[1];
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             particle.lm_cov[2*lm_id + i][j] = pf[i][j];
         }
     }
@@ -492,8 +514,8 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
     float x[2] = {0,0};
     float vect[2] = {0,0};
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             HfT[i][j] = Hf[i][j]; 
             H[i][j] = Hf[i][j]; 
             PHt[i][j] = pf[i][j];
@@ -504,15 +526,15 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
    // computer Q = H * cov * H^T + Qt
     transpose_mat(HfT);
     mult_mat(PHt, HfT);
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             PHt[i][j] = HfT[i][j];
         }
     }
     
     mult_mat(H, HfT);
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             ST[i][j] = HfT[i][j] + Q_mat[i][j];
             sChol[i][j] = ST[i][j];
         }
@@ -524,8 +546,8 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
 
 
     // make s symmetric
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             sChol[i][j] += ST[i][j];
             sChol[i][j] *= 0.5;
         }
@@ -543,8 +565,8 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
 
     inverse(S, 2);
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             L_trans[i][j] = S[i][j + 2];
 
         }
@@ -561,8 +583,8 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
     matrix_vector(L_trans, dz, x);
 
     // copy W1 into L_mattrans
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             L_trans[i][j] = L_matrix[i][j];
         }
     }
@@ -576,8 +598,8 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
     xf[1] += x[1]; 
 
     // P = pf - W1*W1.T
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             pf[i][j] -= L_trans[i][j];
         }
     }
@@ -657,7 +679,7 @@ bool cholesky_decomp(float S[3][3], float vector_b[3], int n){
 void add_new_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     float r = z[0]; 
     float b = z[1]; 
-    uint8_t lm_id = (uint8_t)z[2]; 
+    int lm_id = (int)z[2]; 
     float gz[2][2] = { 0 }; 
     float sChol[2][2] = { 0 }; 
     float sChol_trans[2][2] = { 0 };
@@ -718,8 +740,8 @@ void add_new_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
         }     
     }
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             // float val = gv_trans[i][j];
             particle.lm_cov[2*lm_id + i][j] = sChol_trans[i][j];
         }
@@ -732,17 +754,16 @@ void resampling(Particle* particles){
     float w_cumulative[NUM_PARTICLES] = {};
     float base[NUM_PARTICLES] = {};
     float resample_id[NUM_PARTICLES] = {};
-    vector<float> weights;
-    random_device rd; 
-    mt19937 gen(rd()); 
-    uniform_real_distribution<float> distribution(-1.0, 1.0); 
-    uint8_t indices[NUM_PARTICLES] = {}; 
+    // std::random_device rd; 
+    // std::mt19937 gen(rd()); 
+    // std::uniform_real_distribution<float> distribution(-1.0, 1.0); 
+    int indices[NUM_PARTICLES] = {}; 
     Particle tmp_particles[NUM_PARTICLES] = {};
 
     normalize_weight(particles);
     
 
-    uint16_t i = 0;
+    int i = 0;
     for (i = 0; i < NUM_PARTICLES; i++){
         pw[i] = particles[i].w;
     }
@@ -758,11 +779,12 @@ void resampling(Particle* particles){
         for (i = 0; i < NUM_PARTICLES; i++){
             pw[i] = (float)1.0/NUM_PARTICLES;
         }
-        uint8_t index = 0;
+        int index = 0;
         cumulative_sum(pw, base); // calculate the new normalized cummulative sum
         for (i = 0; i < NUM_PARTICLES; i++){
             base[i] -= 1/NUM_PARTICLES;
-            resample_id[i] = distribution(gen);
+            // resample_id[i] = distribution(gen);
+            resample_id[i] = get_rand_uniform(-1.0, 1.0);
             resample_id[i] /= NUM_PARTICLES;
             resample_id[i] += base[i];
 
@@ -777,7 +799,7 @@ void resampling(Particle* particles){
            tmp_particles[i] = particles[i];
         }
 
-        uint8_t j, k;
+        int j, k;
 
         for(i = 0; i < NUM_PARTICLES; i++){
             particles[i].x = tmp_particles[indices[i]].x;
@@ -801,7 +823,7 @@ void resampling(Particle* particles){
 
 void cumulative_sum(float array[NUM_PARTICLES], float sum[NUM_PARTICLES]){
     sum[0] = array[0];
-    for (uint16_t i = 1; i < NUM_PARTICLES; i++){
+    for (int i = 1; i < NUM_PARTICLES; i++){
         sum[i] = sum[i-1] + array[i];
     }
 
@@ -834,7 +856,7 @@ void normalize_weight(Particle* particles){
 }
 
 float compute_weight(Particle particle, float z[STATE_SIZE], float (&Q_mat)[2][2]){
-    uint8_t lm_id = (uint8_t)z[2];
+    int lm_id = (int)z[2];
     float xf[2] = {0.0, 0.0}; // column vector
     float pf[2][2] =  {{0,0}, {0,0}};
     float Hv[2][3] =  {{0, 0, 0}, {0, 0, 0}};
@@ -855,8 +877,8 @@ float compute_weight(Particle particle, float z[STATE_SIZE], float (&Q_mat)[2][2
     xf[1] = particle.lm[lm_id][1];
 
     //pF holds the landmark covariance
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             pf[i][j] = particle.lm_cov[2*lm_id + i][j];
         }
     }
@@ -867,8 +889,8 @@ float compute_weight(Particle particle, float z[STATE_SIZE], float (&Q_mat)[2][2
     dx[0] = z[0] - zp[0];
     dx[1] = pi_2_pi(z[1] - zp[1]); 
 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             sChol[i][j] = Sf[i][j];
         }
         result[i] = dx[i];
@@ -889,7 +911,7 @@ float compute_weight(Particle particle, float z[STATE_SIZE], float (&Q_mat)[2][2
 
 float dot_product(float (&row_vec)[2], float (&col_vec)[2]){
     float sum = 0.0; 
-    for (uint8_t i = 0; i < 2; i++){
+    for (int i = 0; i < 2; i++){
         sum += row_vec[i]*col_vec[i];
     }
     return sum; 
@@ -927,8 +949,8 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
 
     // shallow copy Hv into mult_vals
     // pf holds the landmark's EKF covariance 
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             mult_vals[i][j] = Hf[i][j];
             vals[i][j] = Hf[i][j];
             pf_mat[i][j] = pf[i][j];
@@ -943,8 +965,8 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
     mult_mat(vals, mult_vals);
     
     // Sf holds Q =H*cov*H^T + Qt
-    for (uint8_t i = 0; i < 2; i++){
-        for (uint8_t j = 0; j < 2; j++){
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
             Sf[i][j] = mult_vals[i][j] + Q_mat[i][j];
         }
     }
@@ -952,16 +974,20 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
 
 component void mult_mat(float matrix1[2][2], float matrix2[2][2]){
     float inter[2][2]; 
-    uint8_t i = 0;
-    uint8_t j = 0;
-    uint8_t k = 0;
+    int i = 0;
+    int j = 0;
+    int k = 0;
+
+    #pragma unroll
     for (i = 0; i < 2; i++){
         for (j = 0; j < 2; j++){
             inter[i][j] = matrix2[i][j];
         }
     }
 
+    #pragma unroll
     for (i = 0; i < 2; i++){
+        #pragma unroll
         for (j = 0; j < 2; j++){
             matrix2[i][j] = 0;
             for (k = 0; k < 2; k++){
@@ -1083,18 +1109,17 @@ void calc_final_state(Particle* particles, float xEst[3]){
 }
 
 //outside the scope of the main fasst SLAM --> mainly used to advance the simulation
-void observation(float xTrue[3], float xd[3], float u[2], float rfid[num_landmarks][2], uint8_t num_id, float ud[2], int& num_cols, float z[3][num_landmarks]){
-    random_device rd; 
-    mt19937 gen(rd()); 
-    // uniform_real_distribution<float> distribution(0, 1.0); 
-    printf("time: %f, xTrue (states obs) is: %f, %f, %f \n", time_step, xTrue[0], xTrue[1], xTrue[2]);
+void observation(float xTrue[3], float xd[3], float u[2], float rfid[num_landmarks][2], int num_id, float ud[2], int& num_cols, float z[3][num_landmarks]){
+    // std::random_device rd; 
+    // std::mt19937 gen(rd()); 
+    // // uniform_real_distribution<float> distribution(0, 1.0); 
+    // printf("time: %f, xTrue (states obs) is: %f, %f, %f \n", time_step, xTrue[0], xTrue[1], xTrue[2]);
 
     motion_model(xTrue, u); // return the true trajectory from the motion model (no noise)
     // printf("time: %f, xTrue is: %f, %f, %f \n", time_step, xTrue[0], xTrue[1], xTrue[2]);
-    vector<vector<float>> z_new = {{0}, {0}, {0}}; 
     float zi[3] = {};
     float dx, dy, d, angle, dn, angle_noisy; 
-    uint8_t i, j; 
+    int i, j; 
     int position = 0; 
 
     for(i = 0; i < num_id; i++){
@@ -1110,13 +1135,17 @@ void observation(float xTrue[3], float xd[3], float u[2], float rfid[num_landmar
         // add only the landmarks we can see (ie., within a given range of)
         if (d <= MAX_RANGE){
             // add noise to the measured distance to the landmark
-            normal_distribution<float> distribution(0, 0.1);
-            dn = d + distribution(gen)*pow(Q_sim[0][0], 0.5);  //gaussian noise added to our measurement
+            // std::normal_distribution<float> distribution(0, 0.1);
+            // dn = d + distribution(gen)*pow(Q_sim[0][0], 0.5);  //gaussian noise added to our measurement
             // printf("Time is: %f; i is: %d, dn is: %f\n", time_step, i, dn);
-            normal_distribution<float> distribution2(0, 0.1); 
-            angle_noisy = angle + distribution2(gen)*pow(Q_sim[1][1], 0.5); // gaussian noise added to our measurement 
+            dn = d + get_rand_gaussian(0, 0.1)*pow(Q_sim[0][0], 0.5);  //gaussian noise added to our measurement
+
+            // std::normal_distribution<float> distribution2(0, 0.1); 
+            // angle_noisy = angle + distribution2(gen)*pow(Q_sim[1][1], 0.5); // gaussian noise added to our measurement 
             // angle_noisy = angle + distribution(gen)*pow(Q_sim[1][1], 0.5);
             // printf("Time is: %f; i is: %d, Angle noisy is: %f\n", time_step, i, angle_noisy);
+            angle_noisy = angle + get_rand_gaussian(0, 0.1)*pow(Q_sim[1][1], 0.5); // gaussian noise added to our measurement 
+
 
             // store the measurement and perform the known data association by including the landmark ID
             zi[0] = dn; 
@@ -1135,12 +1164,13 @@ void observation(float xTrue[3], float xd[3], float u[2], float rfid[num_landmar
 
     num_cols = position; 
     // Add noise to the control input to advance the simulation 
-    normal_distribution<float> distribution_cntr(0, 0.25);
-    ud[0] = u[0] + distribution_cntr(gen)*pow(R_sim[0][0], 0.5);
-    normal_distribution<float> distribution_cntr2(0, 0.25);
-    ud[1] = u[1] + distribution_cntr2(gen)*pow(R_sim[1][1], 0.5) + OFFSET_YAW_RATE_NOISE; 
+    // std::normal_distribution<float> distribution_cntr(0, 0.25);
+    ud[0] = u[0] + get_rand_gaussian(0, 0.25)*pow(R_sim[0][0], 0.5);
 
-    printf("Time is: %f; Xd (states obs2 is: %f, %f, %f\n", time_step, xd[0], xd[1], xd[2]);
+    // std::normal_distribution<float> distribution_cntr2(0, 0.25);
+    ud[1] = u[1] + get_rand_gaussian(0, 0.25)*pow(R_sim[1][1], 0.5) + OFFSET_YAW_RATE_NOISE; 
+
+    // printf("Time is: %f; Xd (states obs2 is: %f, %f, %f\n", time_step, xd[0], xd[1], xd[2]);
 
     motion_model(xd, ud);
 
@@ -1172,22 +1202,18 @@ int main(){
 
 
     // create file to store the particle data 
-    ofstream outputFile("particleData.csv");
-    ofstream outputFile2("historyData.csv");
-    ofstream outputFile3("Landmark_coords.csv");
+    FILE* outputFile = fopen("particleData.csv", "w+");
+    FILE* outputFile2 = fopen("historyData.csv", "w+");
+    FILE* outputFile3 = fopen("Landmark_coords.csv", "w+");
+
 
     // making the format for the file
-    outputFile << "Time" << "," << "Particle" << "," << "Particle x" << "," << "Particle y" << "," << "Landmark 1 x" << "," << "Landmark 1 y" << "," << "Landmark 2 x" << "," << "Landmark 2 y" << "," << "Landmark 3 x" << "," << "Landmark 3 y" << "," << "Landmark 4 x" << "," << "Landmark 4 y"<< "," << "Landmark 5 x" << "," << "Landmark 5 y" << "," << "Landmark 6 x" << "," << "Landmark 6 y" << "," << "Landmark 7 x" << "," << "Landmark 7 y" << "," << "Landmark 8 x" << "," << "Landmark 8 y" << endl;   
-    outputFile2 << "Time" << "," << "hxTrue x" << "," << "hxTrue y" << "," << "hxDr x" << "," << "hxDR y" << "," << "hxEst x" << "," << "hxEst y" << endl;
-    outputFile3 << "Landmark x" << "," << "Landmark y" << endl;
-    
+    fprintf(outputFile, "Time, Particle, Particle x, Particle y, Landmark 1 x, landmark 1 y, Landmark 2 x, landmark 2 y, Landmark 3 x, landmark 3 y, Landmark 4 x, landmark 4 y, Landmark 5 x, landmark 5 y, Landmark 6 x, landmark 6 y, Landmark 7 x, landmark 7 y, Landmark 8 x, landmark 8 y\n");
+    fprintf(outputFile2, "Time, hxTrue x, hxTrue y, hxDr x, hxDr y, hxEst x, hxEst y\n");
+    fprintf(outputFile3, "Landmark x, Landmark y\n");
+      
     for(int i = 0; i < num_landmarks; i++){
-        for (int j = 0; j < 2; j++){
-            // 0, 0 =0; 0, 1 = 1; 1, 0= 2; 1, 1 = 3; 2, 0 = 4
-            if(j < 1) outputFile3 << RFID[i][j] << ",";
-            else outputFile3 << RFID[i][j];
-        }
-        outputFile3 << endl;
+        fprintf(outputFile3, "%f, %f\n", RFID[i][0], RFID[i][1]);
     }
 
     while(SIM_TICK>= time_step){
@@ -1202,29 +1228,21 @@ int main(){
         calc_final_state(particles, xEst);  
         
         // populates the text file holding all the particles values through all the time steps 
-        if(outputFile.is_open()){
-            int i = 0;
-            for(i = 0; i < TOTAL_NUM_PARTICLES; i++){
-                if(i < NUM_PARTICLES){
-                    outputFile << time_step << "," << i << "," << particles[i].x << "," << particles[i].y; 
-                    for (int j = 0; j < 8; j++){
-                        for (int k = 0; k < 2; k++){
-                            outputFile << "," << particles[i].lm[j][k]; 
-                        }
-                    }
-                    outputFile << endl; 
-                }
-            }
-        }
-        if(outputFile2.is_open()){
-            outputFile2 << time_step << "," << xTrue[0] << "," << xTrue[1] << "," << xDR[0] << "," << xDR[1] << "," << xEst[0] << "," << xEst[1] << endl; 
+        
+        int i = 0;
+        for(i = 0; i < TOTAL_NUM_PARTICLES; i++){
+            if(i < NUM_PARTICLES){
+                fprintf(outputFile, "%f, %d, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", time_step, i, particles[i].x, particles[i].y, particles[i].lm[0][0], particles[i].lm[0][1],
+                    particles[i].lm[1][0], particles[i].lm[1][1], particles[i].lm[2][0], particles[i].lm[2][1], particles[i].lm[3][0], particles[i].lm[3][1], particles[i].lm[4][0], particles[i].lm[4][1], particles[i].lm[5][0], 
+                    particles[i].lm[5][1], particles[i].lm[6][0], particles[i].lm[6][1], particles[i].lm[7][0], particles[i].lm[7][1]);
+          }
         }
 
 
     }
-    outputFile.close();
-    outputFile2.close();
-    outputFile3.close(); 
+    fclose(outputFile);
+    fclose(outputFile2);
+    fclose(outputFile3); 
 
     printf("made that shit\n");  
     return 1; 

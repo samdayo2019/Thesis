@@ -1,10 +1,9 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#include <cmath>
-#include <stdint.h>
-#include <vector>
-#include "math.h"
+// #include <cmath>
+/// #include <vector>
+// #include "math.h"
 // #include <corecrt_math_defines.h>
 #include "HLS\extendedmath.h"
 
@@ -69,7 +68,8 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]);
 // float* motion_model(float* states, float* control);
 float pi_2_pi(float value);
 
-
+float get_rand_gaussian(float min, float max);
+float get_rand_uniform(float min, float max);
 
 float compute_weight(Particle particle, float z[STATE_SIZE], float (&Q_mat)[2][2]); 
 void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], float (&Q_mat)[2][2], float (Hf)[2][2], float (&Hv)[2][3], float (&Sf)[2][2], float (&zp)[2]);
@@ -80,7 +80,7 @@ void predict_particles(Particle* particles, float control[2]);
 void resampling(Particle* particles); 
 void normalize_weight(Particle* particles);
 
-void observation(float xTrue[3], float xd[3], float u[2], float rfid[num_landmarks][2], uint8_t num_id, float ud[2], int& num_cols, float z[3][num_landmarks]);
+void observation(float xTrue[3], float xd[3], float u[2], float rfid[num_landmarks][2], int num_id, float ud[2], int& num_cols, float z[3][num_landmarks]);
 void calc_input(float time, float u[2]);
 void calc_final_state(Particle* particles, float xEst[3]);
 
