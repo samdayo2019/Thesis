@@ -22,6 +22,7 @@
 #define ROWS 3
 #define COLS 3
 #define pi 3.14159265
+#define SEED_VAL 1543
 
 #define num_landmarks 8
 
@@ -68,7 +69,7 @@ void proposal_sampling(Particle& particle, float z[3], float (&Q_mat)[2][2]);
 // float* motion_model(float* states, float* control);
 float pi_2_pi(float value);
 
-float get_rand_gaussian(float min, float max);
+float get_rand_gaussian(float mean, float sig);
 float get_rand_uniform(float min, float max);
 
 float compute_weight(Particle particle, float z[STATE_SIZE], float (&Q_mat)[2][2]); 

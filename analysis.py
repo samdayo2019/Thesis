@@ -26,31 +26,31 @@ def main():
         low_end = time - 0.005
         high_end = time + 0.005
         selected_row = df_history[(df_history['Time'] >= low_end) & (df_history['Time'] <= high_end)]
-        selected_col = selected_row[['hxEst x', 'hxEst y']]
+        selected_col = selected_row.iloc[:,5:]
 
         selected_col.iloc[1:]
         array = selected_col.to_numpy()
 
         estSubSet = df_history[(df_history['Time'] <= high_end)]
-        subSetCols = estSubSet[['hxEst x', 'hxEst y']]
+        subSetCols = estSubSet.iloc[:,5:]
         subSetCols.iloc[1:]
 
         hxEst = subSetCols.to_numpy()
 
         xDRSubSet = df_history[(df_history['Time'] <= high_end)]
-        subSetCols = xDRSubSet[['hxDr x', 'hxDR y']]
+        subSetCols = xDRSubSet.iloc[:, 3:5]
         subSetCols.iloc[1:]
 
         hxDR = subSetCols.to_numpy()
 
         xTrueSubSet = df_history[(df_history['Time'] <= high_end)]
-        subSetCols = xTrueSubSet[['hxTrue x', 'hxTrue y']]
+        subSetCols = xTrueSubSet.iloc[:, 1:3]
         subSetCols.iloc[1:]
 
         hxTrue = subSetCols.to_numpy()
 
-        selected_rows = df_particles[(df_particles['Time'] >= low_end) & (df_particles['Time'] <= high_end)]
-        particle_coords = selected_rows[['Particle x', 'Particle y']]
+        selected_row = df_particles[(df_particles['Time'] >= low_end) & (df_particles['Time'] <= high_end)]
+        particle_coords = selected_row.iloc[:, 2:4]
         particle_coords.iloc[1:]
         particles = particle_coords.to_numpy()
 
@@ -69,7 +69,7 @@ def main():
             for j in range(1, NUM_LANDMARKS + 1):
                 concat_x_string = "Landmark " + str(j) + " x"
                 concat_y_string = "Landmark " + str(j) + " y"
-                landmark_coords = selected_rows[[concat_x_string, concat_y_string]]
+                landmark_coords = selected_row.iloc[:,2*j + 2: 2*j+2 + 2]
                 landmark_coords.iloc[1:]
                 landmarks = landmark_coords.to_numpy()
                 plt.plot(landmarks[i,0], landmarks[i,1], "xb")

@@ -138,22 +138,22 @@ void predict_particles(Particle* particles, float control[2]){
     // return particles; 
 }
 
-float get_rand_gaussian(float min, float max){
-    extern RNG_Gaussian<float> randm;
+float get_rand_gaussian(float mean, float sig){
+    static RNG_Gaussian<float> randm(SEED_VAL);
     
     float gen_val = randm.rand();
+    
 
-    float scaled_num = gen_val * (max - min)/sqrt(2.0) + (max + min)/2.0;
-
+    float scaled_num = gen_val * sig + mean;
     return scaled_num;
 }
 
 float get_rand_uniform(float min, float max){
-    extern RNG_Uniform<float> randn;
+    static RNG_Uniform<float> randn(SEED_VAL);
     
     float gen_val = randn.rand();
 
-    float scaled_num = gen_val * (max - min)/sqrt(2.0) + (max + min)/2.0;
+    float scaled_num = gen_val * (max - min) + min;
 
     return scaled_num;
 }
@@ -972,27 +972,37 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
     }
 }
 
-component void mult_mat(float matrix1[2][2], float matrix2[2][2]){
+component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream<float> &matrix2){
     float inter[2][2]; 
-    int i = 0;
-    int j = 0;
-    int k = 0;
+    hls_register float matrixInput1[2][2];
+    hls_register float result[2][2]; 
 
-    #pragma unroll
-    for (i = 0; i < 2; i++){
-        for (j = 0; j < 2; j++){
-            inter[i][j] = matrix2[i][j];
+
+
+    #pragma loop_coalesce 
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
+            inter[i][j] = matrix2.read();
+            matrixInput1[i][j] = matrix1.read();
+        }
+    }
+    // #pragma unroll
+    for (int i = 0; i < 2; i++){
+        # pragma unroll
+        for (int j = 0; j < 2; j++){
+            float sum = 0;
+            #pragma unroll 
+            for (int k = 0; k < 2; k++){
+                sum += matrixInput1[i][k]*inter[k][j];
+            }
+            result[i][j] = sum;
         }
     }
 
-    #pragma unroll
-    for (i = 0; i < 2; i++){
-        #pragma unroll
-        for (j = 0; j < 2; j++){
-            matrix2[i][j] = 0;
-            for (k = 0; k < 2; k++){
-                matrix2[i][j] += matrix1[i][k]*inter[k][j];
-            }
+    #pragma loop_coalesce 
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2; j++){
+            matrix2.write(result[i][j]);
         }
     }
 }
@@ -1238,8 +1248,10 @@ int main(){
           }
         }
 
+        fprintf(outputFile2, "%f, %f, %f, %f, %f, %f, %f\n", time_step, xTrue[0], xTrue[1], xDR[0], xDR[1], xEst[0], xEst[1]);
 
     }
+
     fclose(outputFile);
     fclose(outputFile2);
     fclose(outputFile3); 
