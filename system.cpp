@@ -19,6 +19,7 @@
 #include "HLS\hls.h"
 #include "HLS\stdio.h" // to be able to use printf properly
 #include "HLS\rand_lib.h"
+#include <chrono>
 
 
 Particle::Particle(int number_landmarks)
@@ -175,7 +176,7 @@ void update_with_observation(Particle* particles, float z[STATE_SIZE][num_landma
             if (abs(particles[j].lm[landmark_id][0]) <= 0.01){
                 add_new_landmark(particles[j], obs, Q_matrix);  
             }
-            else{             
+            else{     
                 weight = compute_weight(particles[j], obs, Q_matrix);               
                 particles[j].w *= weight; 
                 //cout << "Weight: " << weight << endl;
@@ -336,56 +337,64 @@ void matrix_vector(float matrix[2][2], float (&vector)[2], float (&result)[2]){
     }
 }
 
-void inverse(float matrix[2][4], int n){
-    float temp_val; 
-    float temp[4] = {};
+component void inverse(ihc::stream<float> &matrix, hls_stable_argument int n){
+    float temp[4];
+    float invert_mat[2][4];
 
-    for (int i = 0; i < n; i++){
-        for (int j = 0; j <2 * n; j++){
-            // if(j < n){
-            //     matrix[i][j] = clamp(matrix[i][j], -512, 511.984375);
-            // }
-            if(j == (i + n))
-                matrix[i][j] = 1; 
+    # pragma loop_coalesce
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2 * 2; j++){
+            invert_mat[i][j] = (j == (i + 2)) ? 1 : matrix.read();
+            // if(j == (i + n)) matrix[i][j] = 1; 
         }
     }
 
     // perform row swapping
-    for (int i = n - 1; i > 0; i--){
-        if(matrix[i - 1][0] < matrix[i][0]){
-            for(int j = 0; j < 2*n; j++){
-                temp[j] = matrix[i][j];
-                matrix[i][j] = matrix[i-1][j];
-                matrix[i - 1][j] = temp[j];
-            } 
-            
-        }
+    float prev, curr; 
+    for (int i = 1; i > 0; i--){
+        prev = invert_mat[i - 1][0];
+        curr = invert_mat[i][0];
+        # pragma unroll
+        for(int j = 0; j < 4; j++){
+            temp[j] = (prev < curr) ? invert_mat[i][j] : temp[j];
+            invert_mat[i][j] = (prev < curr) ? invert_mat[i-1][j] : invert_mat[i][j];
+            invert_mat[i - 1][j] = (prev < curr) ? temp[j] : invert_mat[i - 1][j];
+        } 
     }
 
     //replace row by sum of itself and constant multiple of another row
-    for (int i = 0; i < n; i++){
-        for (int j = 0; j < n; j++){
-            if(j != i){
-                // temp_val = clamp(matrix[j][i] / matrix[i][i], -2097152, 2097151.9990234375);
-                temp_val = matrix[j][i] / matrix[i][i];
-                // min_value = (temp_val < min_value) ? temp_val : min_value;
-                // max_value = (temp_val > max_value) ? temp_val : max_value;
-                for (int k = 0; k < 2 * n; k++){
-                    // min_value = (matrix[j][k] < min_value) ? matrix[j][k] : min_value;
-                    // max_value = (matrix[j][k] > max_value) ? matrix[j][k] : max_value;
-                    // matrix[j][k] = clamp(matrix[j][k] - matrix[i][k] * temp_val, -2097152, 2097151.9990234375);
-                    matrix[j][k] = matrix[j][k] - matrix[i][k] * temp_val;
-
-                }
+    // # pragma ivdep array(invert_mat)
+    # pragma unroll
+    for (int i = 0; i < 2; i++){
+        float temp_val, diag;
+        diag = invert_mat[i][i]; 
+        # pragma ivdep array(invert_mat)
+        for (int j = 0; j < 2; j++){
+            temp_val = invert_mat[j][i] / diag;
+            // # pragma unroll
+            # pragma unroll
+            for (int k = 0; k < 2 * 2; k++){
+                invert_mat[j][k] = (j != i) ? invert_mat[j][k] - invert_mat[i][k] * temp_val : invert_mat[j][k];
             }
         }
     }
 
-    for (int i = 0; i < n; i++){
-        temp_val = matrix[i][i]; 
-        for (int j = 0; j < 2 * n; j++){
-            // matrix[i][j] = clamp(matrix[i][j] / temp_val, -2097152, 2097151.9990234375);
-            matrix[i][j] = matrix[i][j] / temp_val;
+    // # pragma loop_coalesce
+    float mat_val;
+    # pragma ivdep array(invert_mat)
+    for (int i = 0; i < 2; i++){
+        mat_val = invert_mat[i][i];
+        # pragma unroll
+        for (int j = 0; j < 2 * 2; j++){
+            invert_mat[i][j] /=  mat_val;
+        }
+    }
+
+    # pragma loop_coalesce
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 2 * 2; j++){
+            matrix.write(invert_mat[i][j]);
+            // if(j == (i + n)) matrix[i][j] = 1; 
         }
     }
 }
@@ -553,7 +562,7 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
         }
     }
 
-    cholesky_decomp(sChol, vect, 2);
+    cholesky_decomp(sChol, vect);
 
     transpose_mat(sChol);
 
@@ -605,76 +614,58 @@ void update_kf_with_cholesky(float (&xf)[2], float (&pf)[2][2], float (&dz)[2], 
     }
 }
 
-bool cholesky_decomp(float S[2][2], float vector_b[2], int n){
-    for(int i = 0; i < n; i++){
-        for(int j = i + 1; j < n; j++){
-            S[i][j] = 0; 
+component bool cholesky_decomp(ihc::stream<float> &S, ihc::stream<float> &vector_b){
+    float inter_mat[2][2]; 
+    float vect_b[2]; 
+    // float val = 0;
+
+    # pragma loop_coalesce
+    for(int i = 0; i < 2; i++){
+        // float val = 0;
+        for(int j = 0; j < 2; j++){
+            inter_mat[i][j] = (j > i) ? 0 : S.read();
+            // inter_mat[i][j] = val; 
+            if(j == 0) vect_b[i] = vector_b.read(); 
         }
     }
 
     // forward substitution solving Ly = b 
-    for(int j = 0; j < n; j ++){ // j = 0; j 1
-        if(S[j][j] <= 0){
+    # pragma ivdep array(inter_mat)
+    # pragma ivdep array(vect_b)
+    for(int j = 0; j < 2; j ++){ // j = 0; j 1
+        if(inter_mat[j][j] <= 0){
             // cout << "Matrix is not positive definite" << endl; 
             return false;
         }
-        S[j][j] = (float)sqrt(S[j][j]); // costly sqrt operation 
-        // S[j][j] = clamp((float)sqrt(S[j][j]), -512, 511.984375); // costly sqrt operation 
-        vector_b[j] = vector_b[j] / S[j][j]; 
-        // vector_b[j] = clamp(vector_b[j] / S[j][j], -512, 511.984375); 
-        for(int i = j + 1; i < n; i++){
-            if(i < n){
-                S[i][j] = S[i][j] / S[j][j]; 
-                // S[i][j] = clamp(S[i][j] / S[j][j], -512, 511.984375); 
-                vector_b[i] = vector_b[i] - S[i][j]*vector_b[j];
-                // vector_b[i] = clamp(vector_b[i] - S[i][j]*vector_b[j], -512, 511.984375);
-                for(int k = j + 1; k < i + 1; k++){
-                    S[i][k] = S[i][k] - (S[i][j] * S[k][j]);
-                    // S[i][k] = clamp(S[i][k] - (S[i][j] * S[k][j]), -512, 511.984375);
-                }
+        inter_mat[j][j] = (float)sqrt(inter_mat[j][j]); // costly sqrt operation 
+        vect_b[j] = vect_b[j] / inter_mat[j][j]; 
+        float vector_val = 0; 
+        float s_vect = 0; 
+        # pragma unroll
+        for(int i = 0; i < 2; i++){
+            s_vect = inter_mat[i][j] / inter_mat[j][j]; 
+            # pragma ivdep 
+            for(int k = 0; k < 2; k++){
+                // s_val = inter_mat[i][k] - (s_vect * inter_mat[k][j]);
+                inter_mat[i][k] = (k > j && k < i + 1) ? inter_mat[i][k] - (s_vect * inter_mat[k][j]) : inter_mat[i][k];
+                // S[i][k] = clamp(S[i][k] - (S[i][j] * S[k][j]), -512, 511.984375);
             }
-            else break;
+            vect_b[i] = (i > j) ? vect_b[i] - s_vect*vect_b[j] : vect_b[i]; 
+            inter_mat[i][j] = (i > j) ? s_vect : inter_mat[i][j];
         }
     }
-    
+
+    # pragma loop_coalesce
+    for(int i = 0; i < 2; i++){
+        for(int j = 0; j < 2; j++){
+            S.write(inter_mat[i][j]); 
+            if(j == 0) vector_b.write(vect_b[i]);
+        }
+    }
+
     return true;    
 }
 
-
-bool cholesky_decomp(float S[3][3], float vector_b[3], int n){
-    for(int i = 0; i < n; i++){
-        for(int j = i + 1; j < n; j++){
-            S[i][j] = 0; 
-        }
-    }
-
-    // forward substitution solving Ly = b 
-    for(int j = 0; j < n; j ++){ // j = 0; j 1
-        if(S[j][j] <= 0){
-            // cout << "Matrix is not positive definite" << endl; 
-            return false;
-        }
-        S[j][j] = (float)sqrt(S[j][j]); // costly sqrt operation 
-        // S[j][j] = clamp((float)sqrt(S[j][j]), -512, 511.984375); // costly sqrt operation 
-        vector_b[j] = vector_b[j] / S[j][j]; 
-        // vector_b[j] = clamp(vector_b[j] / S[j][j], -512, 511.984375); 
-        for(int i = j + 1; i < n; i++){
-            if(i < n){
-                S[i][j] = S[i][j] / S[j][j]; 
-                // S[i][j] = clamp(S[i][j] / S[j][j], -512, 511.984375); 
-                vector_b[i] = vector_b[i] - S[i][j]*vector_b[j];
-                // vector_b[i] = clamp(vector_b[i] - S[i][j]*vector_b[j], -512, 511.984375);
-                for(int k = j + 1; k < i + 1; k++){
-                    S[i][k] = S[i][k] - (S[i][j] * S[k][j]);
-                    // S[i][k] = clamp(S[i][k] - (S[i][j] * S[k][j]), -512, 511.984375);
-                }
-            }
-            else break;
-        }
-    }
-    
-    return true;    
-}
 
 void add_new_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
     float r = z[0]; 
@@ -713,7 +704,7 @@ void add_new_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
                 Q[k][i] = Q_mat[k][i];
             }
         }  
-        cholesky_decomp(Q, vect_b, 2);// compute the L matrix and solve for x (ith col of inverse) using foward elemination and backwards substitution
+        cholesky_decomp(Q, vect_b);// compute the L matrix and solve for x (ith col of inverse) using foward elemination and backwards substitution
         for(int k = 0; k < 2; k++){
             sChol[k][j] = vect_b[k]; 
             sChol_trans[k][j] = vect_b[k]; // store the ith column in the ith column of the inverse
@@ -734,7 +725,7 @@ void add_new_landmark(Particle& particle, float z[3], float (&Q_mat)[2][2]){
                 Q[k][i] = sChol[k][i]; // copy the sChol into Q
             }
         }  
-        cholesky_decomp(Q, vect_b, 2);// compute the L matrix and solve for x (ith col of inverse) using foward elemination 
+        cholesky_decomp(Q, vect_b);// compute the L matrix and solve for x (ith col of inverse) using foward elemination 
         for(int k = 0; k < 2; k++){
             sChol_trans[k][j] = vect_b[k]; // store the ith column in the ith column of the inverse
         }     
@@ -897,7 +888,7 @@ float compute_weight(Particle particle, float z[STATE_SIZE], float (&Q_mat)[2][2
     }   
     
     // solve Ly = b where y = z 
-    cholesky_decomp(sChol, result, 2);
+    cholesky_decomp(sChol, result);
 
     // matrix_vector(sChol, dx, result);
     // this dot product can now be computed by taking result and squaring it
@@ -972,6 +963,41 @@ void compute_jacobians(Particle particle, float (&xf)[2], float (&pf)[2][2], flo
     }
 }
 
+// component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream<float> &matrix2){
+//     float inter[2][2]; 
+//     hls_register float matrixInput1[2][2];
+//     hls_register float result[2][2]; 
+
+
+
+//     #pragma loop_coalesce 
+//     for (int i = 0; i < 2; i++){
+//         for (int j = 0; j < 2; j++){
+//             inter[i][j] = matrix2.read();
+//             matrixInput1[i][j] = matrix1.read();
+//         }
+//     }
+//     // #pragma unroll
+//     for (int i = 0; i < 2; i++){
+//         # pragma unroll
+//         for (int j = 0; j < 2; j++){
+//             float sum = 0;
+//             #pragma unroll 
+//             for (int k = 0; k < 2; k++){
+//                 sum += matrixInput1[i][k]*inter[k][j];
+//             }
+//             result[i][j] = sum;
+//         }
+//     }
+
+//     #pragma loop_coalesce 
+//     for (int i = 0; i < 2; i++){
+//         for (int j = 0; j < 2; j++){
+//             matrix2.write(result[i][j]);
+//         }
+//     }
+// }
+
 component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream<float> &matrix2){
     float inter[2][2]; 
     hls_register float matrixInput1[2][2];
@@ -993,7 +1019,7 @@ component void mult_mat(ihc::stream_in<float> &matrix1, ihc::stream<float> &matr
             float sum = 0;
             #pragma unroll 
             for (int k = 0; k < 2; k++){
-                sum += matrixInput1[i][k]*inter[k][j];
+                sum +=  matrixInput1[i][k]*inter[k][j];
             }
             result[i][j] = sum;
         }
@@ -1226,6 +1252,9 @@ int main(){
         fprintf(outputFile3, "%f, %f\n", RFID[i][0], RFID[i][1]);
     }
 
+    auto start_time1 = std::chrono::high_resolution_clock::now(); 
+    float time_measures[500]; 
+    int step = 0;
     while(SIM_TICK>= time_step){
         time_step += TICK; 
         check = time_step; 
@@ -1238,7 +1267,7 @@ int main(){
         calc_final_state(particles, xEst);  
         
         // populates the text file holding all the particles values through all the time steps 
-        
+        auto start_time2 = std::chrono::high_resolution_clock::now();
         int i = 0;
         for(i = 0; i < TOTAL_NUM_PARTICLES; i++){
             if(i < NUM_PARTICLES){
@@ -1249,13 +1278,18 @@ int main(){
         }
 
         fprintf(outputFile2, "%f, %f, %f, %f, %f, %f, %f\n", time_step, xTrue[0], xTrue[1], xDR[0], xDR[1], xEst[0], xEst[1]);
-
+        auto end_time2 = std::chrono::high_resolution_clock::now(); 
+        time_measures[step] = (end_time2 - start_time2)/std::chrono::milliseconds(1);
+        step++; 
     }
-
+    auto end_time1 = std::chrono::high_resolution_clock::now(); 
+    float sum_times = 0;
+    for(int i = 0; i < 500; i++){
+        sum_times+=time_measures[i];
+    }
     fclose(outputFile);
     fclose(outputFile2);
     fclose(outputFile3); 
-
     printf("made that shit\n");  
     return 1; 
 }

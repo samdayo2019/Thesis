@@ -6,6 +6,13 @@
 // #include "math.h"
 // #include <corecrt_math_defines.h>
 #include "HLS\extendedmath.h"
+#include "HLS\hls_float.h"
+#include "HLS\hls.h"
+#include "HLS\ac_fixed.h"
+#include "HLS\rand_lib.h"
+#include "HLS\stdio.h"
+#include "HLS\math.h"
+
 
 
 // FastSLAM constants
@@ -25,6 +32,11 @@
 #define SEED_VAL 1543
 
 #define num_landmarks 8
+
+constexpr auto Rnd = ihc::fp_config::FP_Round::RNE; 
+using float_type = ihc::hls_float<5, 10, Rnd>; 
+
+using fixed_float = ac_fixed<4, 12, true, AC_RND, AC_SAT>;
 
 // Q diagonal matrix 3.0 and 10pi/180 in the diagonals
 float Q_matrix[2][2] = {{9.0, 0.0}, {0.0, (float)pow(10.0*pi/180, 2)}};
@@ -91,8 +103,8 @@ void calc_final_state(Particle* particles, float xEst[3]);
 float dot_product(float (&row_vec)[2], float (&col_vec)[2]);
 float det(float (&matrix)[2][2]);
 void mult_mat(float matrix1[2][2], float matrix2[2][2]);
-bool cholesky_decomp(float S[2][2], float vector_b[2], int n);
-bool cholesky_decomp(float S[3][3], float vector_b[3], int n);
+bool cholesky_decomp(float S[2][2], float vector_b[2]);
+// bool cholesky_decomp(float S[3][3], float vector_b[3], int n);
 void inverse(float matrix[2][4], int n);
 void inverse(float matrix[3][6], int n);
 void matrix_vector_3(float (&matrix)[3][2], float (&vector)[2], float (&result)[3]);
